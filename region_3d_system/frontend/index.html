@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Segment Anything - Interactive Demo</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Segment Anything</h1>
+            <p class="subtitle">Interactive Object Segmentation</p>
+        </header>
+
+        <div class="workspace">
+            <!-- Left Panel -->
+            <aside class="control-panel">
+                <!-- Upload Section -->
+                <section class="panel-section">
+                    <h3 class="section-title">Image</h3>
+                    <label for="imageUpload" class="upload-button">
+                        <svg class="button-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Upload Image
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <button id="clearBtn" class="secondary-button">Clear</button>
+                </section>
+
+                <!-- Mode Selection -->
+                <section class="panel-section">
+                    <h3 class="section-title">Selection Mode</h3>
+                    <div class="mode-selector">
+                        <button class="mode-button active" data-mode="point">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.5"/>
+                            </svg>
+                            <span>Point</span>
+                        </button>
+                        <button class="mode-button" data-mode="box">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            </svg>
+                            <span>Box</span>
+                        </button>
+                        <button class="mode-button" data-mode="polygon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                            </svg>
+                            <span>Polygon</span>
+                        </button>
+                        <button class="mode-button" data-mode="everything">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"/>
+                                <rect x="14" y="3" width="7" height="7"/>
+                                <rect x="3" y="14" width="7" height="7"/>
+                                <rect x="14" y="14" width="7" height="7"/>
+                            </svg>
+                            <span>Auto</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Options -->
+                <section class="panel-section">
+                    <h3 class="section-title">Display Options</h3>
+                    <div class="options-list">
+                        <label class="toggle-option">
+                            <input type="checkbox" id="multiMask" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="option-label">Multi-mask</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="showContours" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="option-label">Contours</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="showTexture" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="option-label">Texture</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Statistics -->
+                <section class="panel-section">
+                    <h3 class="section-title">Information</h3>
+                    <div class="stats-box" id="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Status</span>
+                            <span class="stat-value">Ready</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Actions -->
+                <section class="panel-section">
+                    <button id="downloadMask" class="action-button" disabled>
+                        <svg class="button-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Mask
+                    </button>
+                    <button id="downloadImage" class="action-button" disabled>
+                        <svg class="button-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Result
+                    </button>
+                </section>
+            </aside>
+
+            <!-- Main Canvas Area -->
+            <main class="canvas-area">
+                <div class="canvas-container" id="canvasWrapper">
+                    <canvas id="imageCanvas"></canvas>
+                    <canvas id="overlayCanvas"></canvas>
+                    
+                    <!-- Placeholder -->
+                    <div class="canvas-placeholder" id="placeholder">
+                        <div class="placeholder-content">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                            <p class="placeholder-text">Drop an image here or click Upload</p>
+                            <p class="placeholder-hint">Supports JPG, PNG, WebP</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading Overlay -->
+                    <div class="loading-overlay" id="loading">
+                        <div class="loading-spinner"></div>
+                        <p class="loading-text">Processing...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
