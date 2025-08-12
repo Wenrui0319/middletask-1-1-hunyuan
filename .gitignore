@@ -1,0 +1,13 @@
+.DS_Store
+.obsidian
+
+.obsidian/cache
+.obsidian/workspace.json
+.obsidian/workspaces.json
+.obsidian/workspace-mobile.json
+.obsidian/daily-notes.json
+.obsidian/factes.json
+.obsidian/starred.json
+.obsidian/plugins/some-plugin/data.json
+.obsidian/plugins/recent-files-obsidian/data.json
+.trash/
