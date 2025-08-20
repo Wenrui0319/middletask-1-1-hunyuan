@@ -14,6 +14,7 @@
 多线程并发（参考SAM2 demo backend）
 ### HunYuan Gradio Demo
 前端和后端都用python实现，上手应该比较简单。
+## 分工
 
 ## 第二周汇总
 本周工作：
