@@ -1,9 +1,2 @@
-*
-!.gitignore
-!sam2/
-sam2/*
-!sam2/docker-compose.yaml
-!sam2/backend.Dockerfile
-!sam2/demo/
-!sam2/demo/**
-sam2/demo/data/**
+Hunyuan3D-2.1
+sam2/demo/data/
