@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import useUploadVideo from '@/common/components/gallery/useUploadVideo';
+import useUploadMedia from '@/common/components/gallery/useUploadMedia';
 import OptionButton from '@/common/components/options/OptionButton';
 import Logger from '@/common/logger/Logger';
 import useScreenSize from '@/common/screen/useScreenSize';
@@ -33,7 +33,7 @@ export default function UploadOption({onUpload}: Props) {
   const setUploadingState = useSetAtom(uploadingStateAtom);
   const setSession = useSetAtom(sessionAtom);
 
-  const {getRootProps, getInputProps, isUploading, error} = useUploadVideo({
+  const {getRootProps, getInputProps, isUploading, error} = useUploadMedia({
     onUpload: videoData => {
       navigate(
         {pathname: location.pathname, search: location.search},

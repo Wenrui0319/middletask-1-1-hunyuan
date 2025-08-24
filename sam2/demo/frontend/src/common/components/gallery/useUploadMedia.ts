@@ -1,0 +1,168 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import {useUploadVideoMutation} from '@/common/components/gallery/__generated__/useUploadVideoMutation.graphql';
+import {useUploadImageMutation} from '@/common/components/gallery/__generated__/useUploadImageMutation.graphql';
+import Logger from '@/common/logger/Logger';
+import {VideoData} from '@/demo/atoms';
+import {useState} from 'react';
+import {FileRejection, FileWithPath, useDropzone} from 'react-dropzone';
+import {graphql, useMutation} from 'react-relay';
+
+const ACCEPT_MEDIA = {
+  // Video formats
+  'video/mp4': ['.mp4'],
+  'video/quicktime': ['.mov'],
+  // Image formats
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+};
+
+// 70 MB default max upload size
+const MAX_FILE_SIZE_IN_MB = 70;
+const MAX_MEDIA_UPLOAD_SIZE = MAX_FILE_SIZE_IN_MB * 1024 ** 2;
+
+type Props = {
+  onUpload: (video: VideoData) => void;
+  onUploadStart?: () => void;
+  onUploadError?: (error: Error) => void;
+};
+
+export default function useUploadMedia({
+  onUpload,
+  onUploadStart,
+  onUploadError,
+}: Props) {
+  const [error, setError] = useState<string | null>(null);
+  const [commitVideo, isVideoMutationInFlight] = useMutation<useUploadVideoMutation>(
+    graphql`
+      mutation useUploadMediaVideoMutation($file: Upload!) {
+        uploadVideo(file: $file) {
+          id
+          height
+          width
+          url
+          path
+          posterPath
+          posterUrl
+        }
+      }
+    `,
+  );
+  
+  const [commitImage, isImageMutationInFlight] = useMutation<useUploadImageMutation>(
+    graphql`
+      mutation useUploadMediaImageMutation($file: Upload!) {
+        uploadImage(file: $file) {
+          id
+          height
+          width
+          url
+          path
+          posterPath
+          posterUrl
+        }
+      }
+    `,
+  );
+
+  const {getRootProps, getInputProps} = useDropzone({
+    accept: ACCEPT_MEDIA,
+    multiple: false,
+    maxFiles: 1,
+    onDrop: (
+      acceptedFiles: FileWithPath[],
+      fileRejections: FileRejection[],
+    ) => {
+      setError(null);
+
+      // Check if any of the files (only 1 file allowed) is rejected. The
+      // rejected file has an error (e.g., 'file-too-large'). Rendering an
+      // appropriate message.
+      if (fileRejections.length > 0 && fileRejections[0].errors.length > 0) {
+        const code = fileRejections[0].errors[0].code;
+        if (code === 'file-too-large') {
+          setError(
+            `File too large. Try a file under ${MAX_FILE_SIZE_IN_MB} MB`,
+          );
+          return;
+        }
+      }
+
+      if (acceptedFiles.length === 0) {
+        setError('File not accepted. Please try again.');
+        return;
+      }
+      if (acceptedFiles.length > 1) {
+        setError('Too many files. Please try again with 1 file.');
+        return;
+      }
+
+      onUploadStart?.();
+      const file = acceptedFiles[0];
+      
+      // Determine if it's a video or image file based on MIME type
+      const isVideo = file.type.startsWith('video/');
+      const isImage = file.type.startsWith('image/');
+
+      if (isVideo) {
+        commitVideo({
+          variables: {
+            file,
+          },
+          uploadables: {
+            file,
+          },
+          onCompleted: response => onUpload(response.uploadVideo),
+          onError: error => {
+            Logger.error(error);
+            onUploadError?.(error);
+            setError('Upload failed.');
+          },
+        });
+      } else if (isImage) {
+        commitImage({
+          variables: {
+            file,
+          },
+          uploadables: {
+            file,
+          },
+          onCompleted: response => onUpload(response.uploadImage),
+          onError: error => {
+            Logger.error(error);
+            onUploadError?.(error);
+            setError('Upload failed.');
+          },
+        });
+      } else {
+        setError('Unsupported file type. Please upload a video or image file.');
+      }
+    },
+    onError: error => {
+      Logger.error(error);
+      setError('File not supported.');
+    },
+    maxSize: MAX_MEDIA_UPLOAD_SIZE,
+  });
+
+  return {
+    getRootProps,
+    getInputProps,
+    isUploading: isVideoMutationInFlight || isImageMutationInFlight,
+    error,
+    setError,
+  };
+}

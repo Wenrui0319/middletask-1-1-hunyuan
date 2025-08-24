@@ -27,6 +27,7 @@ type Mutation {
     startTimeSec: Float = null
     durationTimeSec: Float = null
   ): Video!
+  uploadImage(file: Upload!): Video!
   uploadSharedVideo(file: Upload!): SharedVideo!
   uploadAnnotations(file: Upload!): Boolean!
 }

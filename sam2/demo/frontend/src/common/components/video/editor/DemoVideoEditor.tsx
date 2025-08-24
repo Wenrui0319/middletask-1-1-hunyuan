@@ -19,7 +19,7 @@ import MessagesSnackbar from '@/common/components/snackbar/MessagesSnackbar';
 import useMessagesSnackbar from '@/common/components/snackbar/useDemoMessagesSnackbar';
 import {OBJECT_TOOLBAR_INDEX} from '@/common/components/toolbar/ToolbarConfig';
 import useToolbarTabs from '@/common/components/toolbar/useToolbarTabs';
-import VideoFilmstripWithPlayback from '@/common/components/video/VideoFilmstripWithPlayback';
+// import VideoFilmstripWithPlayback from '@/common/components/video/VideoFilmstripWithPlayback';
 import {
   FrameUpdateEvent,
   RenderingErrorEvent,
@@ -300,7 +300,6 @@ export default function DemoVideoEditor({video: inputVideo}: Props) {
           layers={layers}
           loading={session == null}>
           <div className="bg-graydark-800 w-full">
-            <VideoFilmstripWithPlayback />
             <TrackletsAnnotation />
           </div>
         </VideoEditor>

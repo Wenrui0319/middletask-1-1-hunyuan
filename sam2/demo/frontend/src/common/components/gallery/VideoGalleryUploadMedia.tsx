@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import useUploadVideo from '@/common/components/gallery/useUploadVideo';
+import useUploadMedia from '@/common/components/gallery/useUploadMedia';
 import useScreenSize from '@/common/screen/useScreenSize';
 import {VideoData} from '@/demo/atoms';
 import {MAX_UPLOAD_FILE_SIZE} from '@/demo/DemoConfig';
@@ -29,13 +29,13 @@ type Props = {
   onUploadError?: (error: Error) => void;
 };
 
-export default function VideoGalleryUploadVideo({
+export default function VideoGalleryUploadMedia({
   style,
   onUpload,
   onUploadStart,
   onUploadError,
 }: Props) {
-  const {getRootProps, getInputProps, isUploading, error} = useUploadVideo({
+  const {getRootProps, getInputProps, isUploading, error} = useUploadMedia({
     onUpload,
     onUploadStart,
     onUploadError,
@@ -70,7 +70,7 @@ export default function VideoGalleryUploadVideo({
                 icon={<Upload color="white" size={isMobile ? 24 : 32} />}
                 title={
                   <>
-                    Upload Video{' '}
+                    Upload Media{' '}
                     <div className="text-xs opacity-70">
                       Max {MAX_UPLOAD_FILE_SIZE}
                     </div>

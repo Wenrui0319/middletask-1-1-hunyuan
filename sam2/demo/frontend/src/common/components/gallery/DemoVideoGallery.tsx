@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import {DemoVideoGalleryQuery} from '@/common/components/gallery/__generated__/DemoVideoGalleryQuery.graphql';
-import VideoGalleryUploadVideo from '@/common/components/gallery/VideoGalleryUploadPhoto';
+import VideoGalleryUploadMedia from '@/common/components/gallery/VideoGalleryUploadMedia';
 import VideoPhoto from '@/common/components/gallery/VideoPhoto';
 import useScreenSize from '@/common/screen/useScreenSize';
 import {VideoData} from '@/demo/atoms';
@@ -65,6 +65,7 @@ type VideoPhotoData = Photo &
   VideoData & {
     poster: string;
     isUploadOption: boolean;
+    isImageUpload?: boolean;
   };
 
 export default function DemoVideoGallery({
@@ -120,14 +121,15 @@ export default function DemoVideoGallery({
     const filteredVideos = [...allVideos];
 
     if (showUploadInGallery) {
-      const uploadOption = {
+      // Add media upload option
+      const mediaUploadOption = {
         src: '',
         width: 1280,
         height: 720,
         poster: '',
         isUploadOption: true,
       } as VideoPhotoData;
-      filteredVideos.unshift(uploadOption);
+      filteredVideos.unshift(mediaUploadOption);
     }
 
     return filteredVideos;
@@ -141,7 +143,7 @@ export default function DemoVideoGallery({
     const {url, posterUrl} = video;
 
     return video.isUploadOption ? (
-      <VideoGalleryUploadVideo
+      <VideoGalleryUploadMedia
         style={style}
         onUpload={handleUploadVideo}
         onUploadError={onUploadError}
@@ -181,7 +183,7 @@ export default function DemoVideoGallery({
         <div className="pt-0 md:px-16 md:pt-8 md:pb-8">
           <div {...stylex.props(styles.headerContainer)}>
             <h3 className="mb-2">
-              Select a video to try{' '}
+              Select a media to try{' '}
               <span className="hidden md:inline">
                 with the {DEMO_SHORT_NAME}
               </span>

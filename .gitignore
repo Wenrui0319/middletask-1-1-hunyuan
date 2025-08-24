@@ -6,3 +6,4 @@ sam2/*
 !sam2/backend.Dockerfile
 !sam2/demo/
 !sam2/demo/**
+sam2/demo/data/**

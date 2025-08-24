@@ -6,16 +6,20 @@
 import hashlib
 import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Union
 
 import av
+import imagesize
 import strawberry
 from app_conf import (
     DATA_PATH,
     DEFAULT_VIDEO_PATH,
     MAX_UPLOAD_VIDEO_DURATION,
+    POSTERS_PATH,
+    POSTERS_PREFIX,
     UPLOADS_PATH,
     UPLOADS_PREFIX,
 )
@@ -118,6 +122,67 @@ class Mutation:
             generate_poster=False,
         )
         return video
+
+    @strawberry.mutation
+    def upload_image(
+        self,
+        file: Upload,
+    ) -> Video:
+        """
+        Receive an image file, convert it to a single-frame video, and return the video object.
+        """
+        with tempfile.TemporaryDirectory() as tempdir:
+            # Save uploaded image
+            in_image_path = f"{tempdir}/input.jpg"
+            with open(in_image_path, "wb") as in_f:
+                in_f.write(file.read())
+
+            # Get image dimensions
+            width, height = imagesize.get(in_image_path)
+
+            # Convert image to single-frame video using ffmpeg
+            out_video_path = f"{tempdir}/output.mp4"
+            ffmpeg = shutil.which("ffmpeg")
+            
+            # Use high quality settings for better clarity
+            result = subprocess.run([
+                ffmpeg,
+                "-y",
+                "-loop", "1",
+                "-i", in_image_path,
+                "-c:v", "libx264",
+                "-t", "1",
+                "-pix_fmt", "yuv420p",
+                "-crf", "0",  # High quality, ~ 0-51 range (lower = better)
+                "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",  # Maintain original dimensions
+                out_video_path
+            ], capture_output=True, text=True)
+
+            if result.returncode != 0:
+                raise Exception(f"FFmpeg conversion failed: {result.stderr}")
+
+            # Move video to uploads directory
+            file_hash = hashlib.sha256(open(out_video_path, "rb").read()).hexdigest()
+            file_key = UPLOADS_PREFIX + "/" + f"{file_hash}.mp4"
+            filepath = os.path.join(UPLOADS_PATH, f"{file_hash}.mp4")
+            shutil.move(out_video_path, filepath)
+
+            # Create poster from the image
+            poster_filename = f"{file_hash}.jpg"
+            poster_path = f"{POSTERS_PREFIX}/{poster_filename}"
+            poster_output_path = os.path.join(POSTERS_PATH, poster_filename)
+            shutil.copy(in_image_path, poster_output_path)
+
+            # Return video object
+            video = get_video(
+                filepath,
+                UPLOADS_PATH,
+                file_key=file_key,
+                width=width,
+                height=height,
+                generate_poster=False,  # We already created the poster
+            )
+            return video
 
     @strawberry.mutation
     def start_session(
