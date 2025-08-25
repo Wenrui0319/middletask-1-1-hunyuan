@@ -6,8 +6,6 @@
 comfy launch #启动comfyUI
 ```
 在templates->image中找到Qwen-Image-Edit，下载并按指定位置放好模型文件，搭建工作流。
-
-
 # 白嫖API
 首次开通阿里云百炼时有免费API，大约够300次调用。
 [新人免费额度_大模型服务平台百炼(Model Studio)-阿里云帮助中心](https://help.aliyun.com/zh/model-studio/new-free-quota?spm=5176.28197581.d_index.4.145d29a4kKhJoe)
