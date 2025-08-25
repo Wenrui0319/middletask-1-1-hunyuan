@@ -1,6 +1,7 @@
 import os
 import cv2
 import torch
+import time
 import logging
 import numpy as np
 from typing import Tuple, Dict, Any, List, Union
@@ -13,8 +14,9 @@ from segment_anything import (
     build_sam_vit_l,
     SamPredictor,
 )
+from PIL import Image
 import gradio as gr
-
+from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 # --- 配置与初始化 ---
 temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gradio_tmp")
 os.makedirs(temp_dir, exist_ok=True)
@@ -22,6 +24,11 @@ os.environ['GRADIO_TEMP_DIR'] = temp_dir
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+#加载混元模型，初次需要下载模型，建议调试时先注释，因为加载需要较久时间，在点击生成按钮前不会报错
+model_path = 'tencent/Hunyuan3D-2'
+pipeline_shapegen = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(model_path)
+print("Init hunyuan finished")
 
 # --- 后端函数 (这部分逻辑已验证，无需修改) ---
 
@@ -141,6 +148,50 @@ def interactive_predict(
     vis_image = visualize_prompts(original_image, history, best_mask)
     return vis_image, best_mask, history, predictor
 
+
+
+#获得gallery中当前预览的图片
+def get_gallery_image(evt: gr.SelectData):
+    
+    if evt is None:
+        return None
+        
+    value = evt.value
+    if isinstance(value, np.ndarray):
+        image = value
+        print(f"成功获取图片！类型是 NumPy 数组。形状是: {image.shape}")
+    elif isinstance(value, dict) and 'image' in value and 'path' in value['image']:
+        image_path = value['image']['path']
+        print(f"从路径加载图片: {image_path}")
+        try:
+            pil_image = Image.open(image_path)
+            image = np.array(pil_image)
+            print(f"从路径加载并转换为 NumPy 数组成功！形状是: {image.shape}")
+        except Exception as e:
+            print(f"ERROR: 从路径加载图片失败: {e}")
+            image = None
+    else:
+        print(f"ERROR: 无法处理 evt.value 的类型: {type(value)}")
+        image = None
+    
+    return image
+
+def get_mesh_from_mask(masked_image: np.ndarray, progress=gr.Progress()):
+    if masked_image is None:
+        progress(0.5, desc="未提供待生成的图片")
+        return None, "未提供待生成的图片"
+
+    pil_image = Image.fromarray(masked_image)
+    progress(0.5, desc="正在生成 3D 网格...")
+    mesh = pipeline_shapegen(image=pil_image)[0]
+    timestamp = int(time.time())
+    output_filename = f"output_{timestamp}.glb"
+    output_path = os.path.join(temp_dir, output_filename)
+    progress(0.9, desc="正在导出网格文件...")
+    mesh.export(output_path)
+    progress(1.0, desc="生成成功")
+    return output_path, "生成成功"
+
 # --- UI 布局 ---
 model_dir = "models"
 if not os.path.exists(model_dir): os.makedirs(model_dir)
@@ -174,7 +225,16 @@ with gr.Blocks() as application:
             with gr.Column(scale=3):
                 interactive_display = gr.Image(label="点击或画框来添加提示", type="numpy", interactive=True, height=500)
                 cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
-    
+
+        with gr.Row():
+            with gr.Column(scale=1, min_width=250):
+                gr.Markdown("### 3D 网格生成")
+                gr.Markdown("此功能将基于当前的分割蒙版生成一个简单的3D模型。")
+                generate_mesh_btn = gr.Button("生成 3D 模型")
+                mesh_status_label = gr.Label(label="状态")
+                image_to_generate_3d = gr.Image(label="待生成图片", type="numpy")
+            with gr.Column(scale=3):
+                model_3d_display = gr.Model3D(label="3D 模型预览", clear_color=[255, 255, 255, 0], interactive=True)
     # --- 事件监听逻辑 ---
     
     application.load(fn=load_model, inputs=[selected_model, gr.State(device)], outputs=[predictor_state])
@@ -230,6 +290,18 @@ with gr.Blocks() as application:
         fn=reset_all,
         inputs=[predictor_state, original_image_state],
         outputs=upload_outputs # 使用和上传时完全相同的 outputs 列表
+    )
+    #当点击时，获得选择的图片
+    cutout_gallery.select(
+        fn=get_gallery_image,
+        inputs=None,
+        outputs=[image_to_generate_3d]
+    )
+    #调用混元生成mesh
+    generate_mesh_btn.click(
+        fn=get_mesh_from_mask,
+        inputs=[image_to_generate_3d],
+        outputs=[model_3d_display, mesh_status_label]
     )
 
 application.launch(server_name="0.0.0.0", server_port=7860)
