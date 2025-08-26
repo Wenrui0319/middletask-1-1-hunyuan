@@ -649,8 +649,8 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default='tencent/Hunyuan3D-2mini')
-    parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-mini-turbo')
+    parser.add_argument("--model_path", type=str, default='tencent/Hunyuan3D-2')
+    parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-0')
     parser.add_argument("--texgen_model_path", type=str, default='tencent/Hunyuan3D-2')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--host', type=str, default='0.0.0.0')
@@ -721,7 +721,6 @@ if __name__ == '__main__':
     HAS_T2I = True
     if args.enable_t23d:
         from hy3dgen.text2image import HunyuanDiTPipeline
-
         t2i_worker = HunyuanDiTPipeline('Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled', device=args.device)
         HAS_T2I = True
 
@@ -729,14 +728,8 @@ if __name__ == '__main__':
         Hunyuan3DDiTFlowMatchingPipeline
     from hy3dgen.shapegen.pipelines import export_to_trimesh
     from hy3dgen.rembg import BackgroundRemover
-
     rmbg_worker = BackgroundRemover()
-    i23d_worker = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-        args.model_path,
-        subfolder=args.subfolder,
-        use_safetensors=True,
-        device=args.device,
-    )
+    i23d_worker = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(args.model_path)
     if args.enable_flashvdm:
         mc_algo = 'mc' if args.device in ['cpu', 'mps'] else args.mc_algo
         i23d_worker.enable_flashvdm(mc_algo=mc_algo)

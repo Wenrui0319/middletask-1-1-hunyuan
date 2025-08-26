@@ -247,8 +247,9 @@ def generation_all(
 def shape_generation(
     caption=None, image=None, mv_image_front=None, mv_image_back=None, mv_image_left=None, mv_image_right=None,
     steps=50, guidance_scale=7.5, seed=1234, octree_resolution=256, check_box_rembg=False, num_chunks=200000,
-    randomize_seed: bool = False
+    randomize_seed: bool = False, progress=gr.Progress()
 ):
+    progress(0.3, "生成mesh中...")
     start_time_0 = time.time()
     mesh, image, save_folder, stats, seed = _gen_shape(
         caption, image, mv_image_front=mv_image_front, mv_image_back=mv_image_back, mv_image_left=mv_image_left,
@@ -256,6 +257,7 @@ def shape_generation(
         octree_resolution=octree_resolution, check_box_rembg=check_box_rembg, num_chunks=num_chunks,
         randomize_seed=randomize_seed
     )
+    progress(0.7, "传输mesh结果中...")
     stats['time']['total'] = time.time() - start_time_0
     mesh.metadata['extras'] = stats
     path = export_mesh(mesh, save_folder, textured=False)

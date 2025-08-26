@@ -33,29 +33,9 @@ def build_app():
     if hunyuan_logic.TURBO_MODE:
         title = title.replace(':', '-Turbo: Fast ')
 
-    title_html = f"""
-    <div style="font-size: 2em; font-weight: bold; text-align: center; margin-bottom: 5px">
-    {title}
-    </div>
-    <div align="center">
-    Tencent Hunyuan3D Team
-    </div>
-    <div align="center">
-      <a href="https://github.com/tencent/Hunyuan3D-2">Github</a> &ensp; 
-      <a href="http://3d-models.hunyuan.tencent.com">Homepage</a> &ensp;
-      <a href="https://3d.hunyuan.tencent.com">Hunyuan3D Studio</a> &ensp;
-      <a href="#">Technical Report</a> &ensp;
-      <a href="https://huggingface.co/Tencent/Hunyuan3D-2"> Pretrained Models</a> &ensp;
-    </div>
-    """
-    custom_css = """
-    .app.svelte-wpkpf6.svelte-wpkpf6:not(.fill_width) { max-width: 1480px; }
-    .mv-image button .wrap { font-size: 10px; }
-    .mv-image .icon-wrap { width: 20px; }
-    """
 
-    with gr.Blocks(theme=gr.themes.Base(), title='Hunyuan-3D-2.0', analytics_enabled=False, css=custom_css) as demo:
-        gr.HTML(title_html)
+    
+    with gr.Blocks(theme=gr.themes.Base(), title='Hunyuan-3D-2.0', analytics_enabled=False) as demo:
 
         with gr.Row():
             with gr.Column(scale=3):
@@ -71,45 +51,55 @@ def build_app():
                         with gr.Row():
                             mv_image_left = gr.Image(label='Left', type='pil', image_mode='RGBA', height=140, min_width=100, elem_classes='mv-image')
                             mv_image_right = gr.Image(label='Right', type='pil', image_mode='RGBA', height=140, min_width=100, elem_classes='mv-image')
-                with gr.Row():
-                    btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
-                    btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=hunyuan_logic.HAS_TEXTUREGEN, min_width=100)
+
                 with gr.Group():
                     file_out = gr.File(label="File", visible=False)
                     file_out2 = gr.File(label="File", visible=False)
-                with gr.Tabs() as export_tabs:
-                    with gr.Tab("Options", id='tab_options', visible=hunyuan_logic.TURBO_MODE):
-                        gen_mode = gr.Radio(label='Generation Mode', info='Recommendation: Turbo for most cases, Fast for very complex cases, Standard seldom use.', choices=['Turbo', 'Fast', 'Standard'], value='Turbo')
-                        decode_mode = gr.Radio(label='Decoding Mode', info='The resolution for exporting mesh from generated vectset', choices=['Low', 'Standard', 'High'], value='Standard')
-                    with gr.Tab('Advanced Options', id='tab_advanced_options'):
-                        with gr.Row():
-                            check_box_rembg = gr.Checkbox(value=True, label='Remove Background', min_width=100)
-                            randomize_seed = gr.Checkbox(label="Randomize seed", value=True, min_width=100)
-                        seed = gr.Slider(label="Seed", minimum=0, maximum=hunyuan_logic.MAX_SEED, step=1, value=1234, min_width=100)
-                        with gr.Row():
-                            num_steps = gr.Slider(maximum=100, minimum=1, value=5 if 'turbo' in hunyuan_logic.args.subfolder else 30, step=1, label='Inference Steps')
-                            octree_resolution = gr.Slider(maximum=512, minimum=16, value=256, label='Octree Resolution')
-                        with gr.Row():
-                            cfg_scale = gr.Number(value=5.0, label='Guidance Scale', min_width=100)
-                            num_chunks = gr.Slider(maximum=5000000, minimum=1000, value=8000, label='Number of Chunks', min_width=100)
-                    with gr.Tab("Export", id='tab_export'):
-                        with gr.Row():
-                            file_type = gr.Dropdown(label='File Type', choices=SUPPORTED_FORMATS, value='glb', min_width=100)
-                            reduce_face = gr.Checkbox(label='Simplify Mesh', value=False, min_width=100)
-                            export_texture = gr.Checkbox(label='Include Texture', value=False, visible=False, min_width=100)
-                        target_face_num = gr.Slider(maximum=1000000, minimum=100, value=10000, label='Target Face Number')
-                        with gr.Row():
-                            confirm_export = gr.Button(value="Transform", min_width=100)
-                            file_export = gr.DownloadButton(label="Download", variant='primary', interactive=False, min_width=100)
+
 
             with gr.Column(scale=9):
                 with gr.Tabs() as tabs_output:
-                    with gr.Tab('Generated Mesh', id='gen_mesh_panel'):
-                        html_gen_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
-                    with gr.Tab('Exporting Mesh', id='export_mesh_panel'):
-                        html_export_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
-                    with gr.Tab('Mesh Statistic', id='stats_panel'):
-                        stats = gr.Json({}, label='Mesh Stats')
+                    with gr.Tab('Hunyuan3D'):
+                        with gr.Row(equal_height=True):
+                            with gr.Column(scale=2, min_width=250):
+                                gr.Markdown("### Hunyuan3D Controls")
+                                geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290)
+                                btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
+                                btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=hunyuan_logic.HAS_TEXTUREGEN, min_width=100)
+                                with gr.Tabs() as export_tabs:
+                                    with gr.Tab("Options", id='tab_options', visible=hunyuan_logic.TURBO_MODE):
+                                        gen_mode = gr.Radio(label='Generation Mode', info='Recommendation: Turbo for most cases, Fast for very complex cases, Standard seldom use.', choices=['Turbo', 'Fast', 'Standard'], value='Turbo')
+                                        decode_mode = gr.Radio(label='Decoding Mode', info='The resolution for exporting mesh from generated vectset', choices=['Low', 'Standard', 'High'], value='Standard')
+                                    with gr.Tab('Advanced Options', id='tab_advanced_options'):
+                                        with gr.Row():
+                                            check_box_rembg = gr.Checkbox(value=True, label='Remove Background', min_width=100)
+                                            randomize_seed = gr.Checkbox(label="Randomize seed", value=True, min_width=100)
+                                        seed = gr.Slider(label="Seed", minimum=0, maximum=hunyuan_logic.MAX_SEED, step=1, value=1234, min_width=100)
+                                        with gr.Row():
+                                            num_steps = gr.Slider(maximum=100, minimum=1, value=5 if 'turbo' in hunyuan_logic.args.subfolder else 30, step=1, label='Inference Steps')
+                                            octree_resolution = gr.Slider(maximum=512, minimum=16, value=256, label='Octree Resolution')
+                                        with gr.Row():
+                                            cfg_scale = gr.Number(value=5.0, label='Guidance Scale', min_width=100)
+                                            num_chunks = gr.Slider(maximum=5000000, minimum=1000, value=8000, label='Number of Chunks', min_width=100)
+                                    with gr.Tab("Export", id='tab_export'):
+                                        with gr.Row():
+                                            file_type = gr.Dropdown(label='File Type', choices=SUPPORTED_FORMATS, value='glb', min_width=100)
+                                            reduce_face = gr.Checkbox(label='Simplify Mesh', value=False, min_width=100)
+                                            export_texture = gr.Checkbox(label='Include Texture', value=False, visible=False, min_width=100)
+                                        target_face_num = gr.Slider(maximum=1000000, minimum=100, value=10000, label='Target Face Number')
+                                        with gr.Row():
+                                            confirm_export = gr.Button(value="Transform", min_width=100)
+                                            file_export = gr.DownloadButton(label="Download", variant='primary', interactive=False, min_width=100)
+                                
+                            with gr.Column(scale=5):
+                                gr.Markdown("### Hunyuan3D Result")
+                                with gr.Tabs():
+                                    with gr.Tab('Generated Mesh', id='gen_mesh_panel'):
+                                        html_gen_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
+                                    with gr.Tab('Exporting Mesh', id='export_mesh_panel'):
+                                        html_export_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
+                                    with gr.Tab('Mesh Statistic', id='stats_panel'):
+                                        stats = gr.Json({}, label='Mesh Stats')
                     
                     with gr.Tab('SAM Segmentation', visible=SAM_AVAILABLE) as sam_tab:
                         sam_predictor_state = gr.State(sam_predictor_global)
@@ -139,33 +129,6 @@ def build_app():
                                 interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400)
                                 cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
                         
-                        upload_and_reset_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
-                        clear_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_box_start_state]
-
-                        image.upload(
-                            fn=sam_logic.set_image_for_predictor, 
-                            inputs=[sam_predictor_state, image], 
-                            outputs=upload_and_reset_outputs
-                        ).then(
-                            lambda: gr.update(selected=sam_tab)
-                        )
-                        
-                        image.clear(
-                            fn=sam_logic.clear_sam_panel,
-                            outputs=clear_outputs
-                        )
-
-                        selected_model.change(fn=sam_logic.load_sam_model, inputs=[selected_model, gr.State(args.device)], outputs=[sam_predictor_state])
-                        
-                        interactive_display.select(
-                            fn=sam_logic.interactive_predict,
-                            inputs=[sam_predictor_state, sam_original_image_state, sam_history_state, mode_radio, sam_box_start_state],
-                            outputs=[interactive_display, sam_mask_state, sam_history_state, sam_predictor_state, sam_box_start_state]
-                        )
-                        
-                        cut_everything_btn.click(fn=sam_logic.generate_everything, inputs=[sam_predictor_state, sam_original_image_state], outputs=[interactive_display, cutout_gallery])
-                        cut_out_btn.click(fn=sam_logic.single_cutout, inputs=[sam_original_image_state, sam_mask_state], outputs=[cutout_gallery])
-                        reset_btn.click(fn=sam_logic.reset_all_sam, inputs=[sam_predictor_state, sam_original_image_state], outputs=upload_and_reset_outputs)
 
         gr.HTML(f"""
         <div align="center">
@@ -188,6 +151,35 @@ def build_app():
             </div>
             """)
 
+        #hunyuan更新组件列表
+        hunyuan_upload_and_reset_outputs = [geneting_image]
+        hunyuan_clear_outputs = [geneting_image]
+
+        #sam的更新组件列表
+        sam_upload_and_reset_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
+        sam_clear_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_box_start_state]
+        
+        #统一控制选择逻辑
+        def combine_set_image(sam_predictor_state, image):
+            hunyuan_outputs = (image, )
+            sam_outputs = sam_logic.set_image_for_predictor(sam_predictor_state, image)
+            return hunyuan_outputs + sam_outputs
+        image.upload(
+            fn=combine_set_image, 
+            inputs=[sam_predictor_state, image], 
+            outputs= hunyuan_upload_and_reset_outputs + sam_upload_and_reset_outputs
+        )
+
+        def combine_clear_image():
+            hunyuan_outputs = (None, ) 
+            sam_outputs = sam_logic.clear_sam_panel()
+            return hunyuan_outputs + sam_outputs
+        image.clear(
+            fn=combine_clear_image,
+            outputs=hunyuan_clear_outputs + sam_clear_outputs
+        )
+        
+        #hunyuan3D生成逻辑
         btn.click(
             hunyuan_logic.shape_generation,
             inputs=[caption, image, mv_image_front, mv_image_back, mv_image_left, mv_image_right, num_steps, cfg_scale, seed, octree_resolution, check_box_rembg, num_chunks, randomize_seed],
@@ -241,14 +233,27 @@ def build_app():
             outputs=[html_export_mesh, file_export]
         )
 
+        #SAM控制逻辑
+        selected_model.change(fn=sam_logic.load_sam_model, inputs=[selected_model, gr.State(args.device)], outputs=[sam_predictor_state])
+        
+        interactive_display.select(
+            fn=sam_logic.interactive_predict,
+            inputs=[sam_predictor_state, sam_original_image_state, sam_history_state, mode_radio, sam_box_start_state],
+            outputs=[interactive_display, sam_mask_state, sam_history_state, sam_predictor_state, sam_box_start_state]
+        )
+        
+        cut_everything_btn.click(fn=sam_logic.generate_everything, inputs=[sam_predictor_state, sam_original_image_state], outputs=[interactive_display, cutout_gallery])
+        cut_out_btn.click(fn=sam_logic.single_cutout, inputs=[sam_original_image_state, sam_mask_state], outputs=[cutout_gallery])
+        reset_btn.click(fn=sam_logic.reset_all_sam, inputs=[sam_predictor_state, sam_original_image_state], outputs=sam_upload_and_reset_outputs)
+    
     return demo
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default='tencent/Hunyuan3D-2mini')
-    parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-mini-turbo')
+    parser.add_argument("--model_path", type=str, default='tencent/Hunyuan3D-2')
+    parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-0')
     parser.add_argument("--texgen_model_path", type=str, default='tencent/Hunyuan3D-2')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--host', type=str, default='0.0.0.0')
