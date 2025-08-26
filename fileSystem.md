@@ -25,36 +25,36 @@
 ## 3. 架构设计
 ```mermaid
 graph TD
-subgraph "用户浏览器"
-A[主 Gradio 界面]
-B[文件树 (gr.FileExplorer)]
-DelBtn[删除按钮]
-C[功能IFrame 1: 编辑工具A]
-end
-  
-subgraph "服务器后端 (Python/Gradio)"
-E[共享工作区 (结构化目录)]
-F[信号文件监听服务]
-G[主 Gradio 应用 (AIO_gradio_app.py)]
-I[IFrame 应用A 后端]
-end
+    subgraph "用户浏览器"
+        A["主 Gradio 界面"]
+        B["文件树 (gr.FileExplorer)"]
+        DelBtn["删除按钮"]
+        C["功能IFrame 1: 编辑工具A"]
+    end
 
-A -- "包含" --> B
-A -- "包含" --> C
-A -- "包含" --> DelBtn
-  
-B -- "选中文件" --> DelBtn
-DelBtn -- "点击" --> G
-G -- "执行删除 & 刷新" --> B
+    subgraph "服务器后端 (Python/Gradio)"
+        E["共享工作区 (结构化目录)"]
+        F["信号文件监听服务"]
+        G["主 Gradio 应用 (AIO_gradio_app.py)"]
+        I["IFrame 应用A 后端"]
+    end
 
-F -- "1. 检测到 '信号文件'" --> G
-G -- "2. 触发刷新" --> B
+    A -- "包含" --> B
+    A -- "包含" --> C
+    A -- "包含" --> DelBtn
 
-C -- "x. 用户完成编辑, 点击'保存'" --> I
-I -- "y. 按结构化规则写入结果" --> E
-I -- "z. 写入'.done'信号文件" --> E
+    B -- "选中文件" --> DelBtn
+    DelBtn -- "点击" --> G
+    G -- "执行删除 & 刷新" --> B
 
-E -- "信号文件被创建" --> F
+    F -- "1. 检测到 '信号文件'" --> G
+    G -- "2. 触发刷新" --> B
+
+    C -- "x. 用户完成编辑, 点击'保存'" --> I
+    I -- "y. 按结构化规则写入结果" --> E
+    I -- "z. 写入'.done'信号文件" --> E
+
+    E -- "信号文件被创建" --> F
 ```
 
 ## 4. 实施步骤详解
