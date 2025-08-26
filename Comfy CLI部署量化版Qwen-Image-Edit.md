@@ -7,9 +7,10 @@ comfy launch #启动comfyUI
 ```
 在templates->image中找到Qwen-Image-Edit，下载并按指定位置放好模型文件，搭建工作流。
 
-# 3.ComfyUI-API
-[(10 封私信) 使用python调用comfyui-api，实现出图自由 - 知乎](https://zhuanlan.zhihu.com/p/686893291)
-
+# 3.ComfyUI-API和Gradio前端构建
+[comfyui API实战教程：零基础学会工作流转API，实现AI图像批量生成自动化，提升10倍工作效率的完整指南 ai自动化基础教程之comfyui自动化（附提示词） · Issue #10 · aii.mobi/blog](https://cnb.cool/aii.mobi/blog/-/issues/10)
+用上面文章的提示词，但实现方式不是双栏网页，而是gradio。AI应该知道怎么处理POST和返回值。
+增加其它功能，例如通过文件拖拽实现图像上传、下载，预设提示词。
 
 
 # 白嫖API
