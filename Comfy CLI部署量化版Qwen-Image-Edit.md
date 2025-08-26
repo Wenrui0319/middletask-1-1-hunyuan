@@ -3,7 +3,8 @@
 
 # 2.安装Qwen-Image-Edit工作流
 ```bash
-comfy launch #启动comfyUI
+comfy launch -- --enable-cors#启动comfyUI
+#通过http://localhost:8081访问
 ```
 在templates->image中找到Qwen-Image-Edit，下载并按指定位置放好模型文件，搭建工作流。
 
