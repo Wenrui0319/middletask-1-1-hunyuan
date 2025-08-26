@@ -6,10 +6,18 @@
 comfy launch #启动comfyUI
 ```
 在templates->image中找到Qwen-Image-Edit，下载并按指定位置放好模型文件，搭建工作流。
+
+# 3.ComfyUI-API
+[(10 封私信) 使用python调用comfyui-api，实现出图自由 - 知乎](https://zhuanlan.zhihu.com/p/686893291)
+
+
+
 # 白嫖API
 首次开通阿里云百炼时有免费API，大约够300次调用。
 [新人免费额度_大模型服务平台百炼(Model Studio)-阿里云帮助中心](https://help.aliyun.com/zh/model-studio/new-free-quota?spm=5176.28197581.d_index.4.145d29a4kKhJoe)
 测试模型时可以使用web chat，等开发弄好上API。
+
+
 
 # UI
 主页面与多个编辑功能子页面（工作区）组成，通过缓存文件夹共享数据（主要就是上传图像/下载图像）
