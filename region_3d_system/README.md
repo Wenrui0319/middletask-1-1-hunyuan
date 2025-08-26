@@ -18,7 +18,10 @@ git clone <repository-url>
 cd region_3d_system
 
 # Install dependencies with uv
+pip install uv
 uv sync
+pip install git+https://github.com/facebookresearch/segment-anything.git
+pip install opencv-python pycocotools matplotlib onnxruntime onnx
 ```
 
 ## Usage
