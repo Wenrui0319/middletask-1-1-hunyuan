@@ -2,7 +2,6 @@
 
 import os
 import torch
-
 try:
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gradio_tmp")
     os.makedirs(temp_dir, exist_ok=True)
@@ -10,7 +9,6 @@ try:
     print(f"Gradio temporary directory set to: {temp_dir}")
 except Exception as e:
     print(f"Warning: Could not create or set local Gradio temp directory: {e}")
-
 
 import shutil
 import gradio as gr
@@ -42,9 +40,9 @@ def build_app():
     </div>
     <div align="center">
       <a href="https://github.com/tencent/Hunyuan3D-2">Github</a> &ensp; 
-      <a href="http://3d-models.hunyuan.tencent.com">Homepage</a> &ensp;
-      <a href="https://3d.hunyuan.tencent.com">Hunyuan3D Studio</a> &ensp;
-      <a href="#">Technical Report</a> &ensp;
+      <a href="http://3d-models.hunyuan.tencent.com">Homepage</a> &ensp; 
+      <a href="https://3d.hunyuan.tencent.com">Hunyuan3D Studio</a> &ensp; 
+      <a href="#">Technical Report</a> &ensp; 
       <a href="https://huggingface.co/Tencent/Hunyuan3D-2"> Pretrained Models</a> &ensp;
     </div>
     """
@@ -136,7 +134,7 @@ def build_app():
                                     reset_btn = gr.Button("重置提示")
                             
                             with gr.Column(scale=5):
-                                interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400)
+                                interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=600)
                                 cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
                         
                         upload_and_reset_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
@@ -155,7 +153,7 @@ def build_app():
                             outputs=clear_outputs
                         )
 
-                        selected_model.change(fn=sam_logic.load_sam_model, inputs=[selected_model, gr.State(args.device)], outputs=[sam_predictor_state])
+                        selected_model.change(fn=sam_logic.load_sam_model, inputs=[selected_model, gr.State(args.sam_device)], outputs=[sam_predictor_state])
                         
                         interactive_display.select(
                             fn=sam_logic.interactive_predict,
@@ -243,7 +241,6 @@ def build_app():
 
     return demo
 
-
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -252,7 +249,8 @@ if __name__ == '__main__':
     parser.add_argument("--texgen_model_path", type=str, default='tencent/Hunyuan3D-2')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--host', type=str, default='0.0.0.0')
-    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--device', type=str, default='cuda', help="Device for Hunyuan models (e.g., 'cuda:0', 'cpu')")
+    parser.add_argument('--sam-device', type=str, default=None, help="Device for SAM model (e.g., 'cuda:1'). Defaults to --device if not set.")
     parser.add_argument('--mc_algo', type=str, default='mc')
     parser.add_argument('--cache-path', type=str, default='gradio_cache')
     parser.add_argument('--enable_t23d', action='store_true')
@@ -262,8 +260,13 @@ if __name__ == '__main__':
     parser.add_argument('--low_vram_mode', action='store_true')
     args = parser.parse_args()
 
-    hunyuan_logic.initialize_hunyuan_models(args)
+    if args.sam_device is None:
+        args.sam_device = args.device
+    print(f"Hunyuan models will run on: {args.device}")
+    print(f"SAM model will run on: {args.sam_device}")
 
+    hunyuan_logic.initialize_hunyuan_models(args)
+    
     SUPPORTED_FORMATS = ['glb', 'obj', 'ply', 'stl']
     HTML_OUTPUT_PLACEHOLDER = f"""
     <div style='height: {hunyuan_logic.HTML_HEIGHT}px; width: 100%; border-radius: 8px; border-color: #e5e7eb; border-style: solid; border-width: 1px; display: flex; justify-content: center; align-items: center;'>
@@ -273,7 +276,6 @@ if __name__ == '__main__':
       </div>
     </div>
     """
-
     sam_predictor_global = None
     if SAM_AVAILABLE:
         print("\n--- [SAM] 准备预加载SAM模型...")
@@ -282,8 +284,8 @@ if __name__ == '__main__':
         available_sam_models = [x for x in os.listdir(sam_model_dir) if x.endswith(".pth")]
         if available_sam_models:
             default_sam_model = available_sam_models[0]
-            print(f"    > 找到默认SAM模型: {default_sam_model}")
-            sam_predictor_global = sam_logic.load_sam_model(default_sam_model, args.device)
+            print(f"    > 找到默认SAM模型: {default_sam_model} on device {args.sam_device}")
+            sam_predictor_global = sam_logic.load_sam_model(default_sam_model, args.sam_device)
         else:
             print("    > 警告: 在 'models' 文件夹中未找到SAM模型。SAM功能将不可用，直到手动选择模型。")
 
@@ -298,6 +300,9 @@ if __name__ == '__main__':
         torch.cuda.empty_cache()
 
     demo = build_app()
+    
+    demo.queue()
+
     app = gr.mount_gradio_app(app, demo, path="/")
     
     print(f"\n>>> Gradio 服务即将启动！请在浏览器中打开 http://{args.host}:{args.port}")
