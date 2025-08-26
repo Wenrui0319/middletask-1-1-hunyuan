@@ -1,7 +1,7 @@
 ## 1.安装Comfy CLI
 [ComfyUI Linux Installation Tutorial | ComfyUI Wiki](https://comfyui-wiki.com/en/install/install-comfyui/install-comfyui-on-linux)
 
-# 2.安装Qwen-Image-Edit工作流
+# 2.创建Qwen-Image-Edit工作流
 ```bash
 comfy launch -- --enable-cors#启动comfyUI
 #通过http://localhost:8081访问
