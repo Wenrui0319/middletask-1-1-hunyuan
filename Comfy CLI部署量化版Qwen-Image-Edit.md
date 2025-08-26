@@ -13,13 +13,10 @@ comfy launch -- --enable-cors#启动comfyUI
 用上面文章的提示词，但实现方式不是双栏网页，而是gradio。AI应该知道怎么处理POST和返回值。
 增加其它功能，例如通过文件拖拽实现图像上传、下载，预设提示词。
 
-
 # 白嫖API
 首次开通阿里云百炼时有免费API，大约够300次调用。
 [新人免费额度_大模型服务平台百炼(Model Studio)-阿里云帮助中心](https://help.aliyun.com/zh/model-studio/new-free-quota?spm=5176.28197581.d_index.4.145d29a4kKhJoe)
 测试模型时可以使用web chat，等开发弄好上API。
-
-
 
 # UI
 主页面与多个编辑功能子页面（工作区）组成，通过缓存文件夹共享数据（主要就是上传图像/下载图像）
