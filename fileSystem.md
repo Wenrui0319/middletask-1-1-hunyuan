@@ -25,34 +25,36 @@
 ## 3. 架构设计
 ```mermaid
 graph TD
-    subgraph "用户浏览器"
-        A[主 Gradio 界面]
-        B[文件树 (gr.FileExplorer)]
-        DelBtn[删除按钮]
-        C[功能IFrame 1: 编辑工具A]
-    end
+subgraph "用户浏览器"
+A[主 Gradio 界面]
+B[文件树 (gr.FileExplorer)]
+DelBtn[删除按钮]
+C[功能IFrame 1: 编辑工具A]
+end
+  
+subgraph "服务器后端 (Python/Gradio)"
+E[共享工作区 (结构化目录)]
+F[信号文件监听服务]
+G[主 Gradio 应用 (AIO_gradio_app.py)]
+I[IFrame 应用A 后端]
+end
 
-    subgraph "服务器后端 (Python/Gradio)"
-        E[共享工作区 (结构化目录)]
-        F[信号文件监听服务]
-        G[主 Gradio 应用 (AIO_gradio_app.py)]
-        I[IFrame 应用A 后端]
-    end
+A -- "包含" --> B
+A -- "包含" --> C
+A -- "包含" --> DelBtn
+  
+B -- "选中文件" --> DelBtn
+DelBtn -- "点击" --> G
+G -- "执行删除 & 刷新" --> B
 
-    A -- "包含" --> B & C & DelBtn
+F -- "1. 检测到 '信号文件'" --> G
+G -- "2. 触发刷新" --> B
 
-    B -- "选中文件" --> DelBtn
-    DelBtn -- "点击" --> G
-    G -- "执行删除 & 刷新" --> B
+C -- "x. 用户完成编辑, 点击'保存'" --> I
+I -- "y. 按结构化规则写入结果" --> E
+I -- "z. 写入'.done'信号文件" --> E
 
-    F -- "1. 检测到 '信号文件'" --> G
-    G -- "2. 触发刷新" --> B
-
-    C -- "x. 用户完成编辑, 点击'保存'" --> I
-    I -- "y. 按结构化规则写入结果" --> E
-    I -- "z. 写入'.done'信号文件" --> E
-
-    E -- "信号文件被创建" --> F
+E -- "信号文件被创建" --> F
 ```
 
 ## 4. 实施步骤详解
@@ -61,25 +63,24 @@ graph TD
 1.  在项目根目录创建 `shared_workspace` 文件夹。
 2.  修改 `AIO_gradio_app.py` 中的 `gen_save_folder` 函数，使其在 `shared_workspace` 下为每个新会话创建唯一的根目录（如 `shared_workspace/{uuid}/`）。其他功能子页面也是
 
-### 第二步：定义并实施结构化归档规则
+### 第二步：定义并实施结构化归档规则（下载）
 这是整个架构的基石。**所有 `iframe` 编辑工具在保存结果时都必须遵守**。
-
 1.  **会话根目录**：`shared_workspace/{session_id}/`。
-2.  **线性操作 (1 -> 1)**：
+2.  **线性操作 (1 -> 1)**：从上传url中获取存放路径
     -   **定义**：一个输入产生一个输出。
     -   **规则**：当对 `.../working_dir/input.png` 执行线性操作时，其结果 `output.png` 必须保存在**同一目录下**：`.../working_dir/output.png`。
-3.  **树形操作 (1 -> N)**：
+3.  **树形操作 (1 -> N)**：从上传url中获取存放路径
     -   **定义**：一个输入产生 N 个输出。
     -   **规则**：当对 `.../working_dir/input.png` 执行树形操作并产生 `result1.png` 和 `result2.png` 时：
-        -   **结果图像**保存在当前工作目录：`.../working_dir/result1.png` 和 `.../working_dir/result2.png`。
-        -   **创建新工作目录**：为每一个结果图像，创建一个以该图像（无扩展名）命名的**同级子目录**：`.../working_dir/result1/` 和 `.../working_dir/result2/`。
+        -   **创建新工作目录**：为每一个结果图像，创建一个以该图像（无扩展名）命名的**子目录**：`.../working_dir/result1/` 和 `.../working_dir/result2/`。
+        -   **结果图像**保存在对应子目录：`.../working_dir/result1/result1.png` 和 `.../working_dir/result2/result2.png`。
 
 ### 第三步：实现文件树与删除功能
 1.  在主应用UI中使用 `gradio.FileExplorer` 组件。
 2.  在其旁边添加一个 `gr.Button("删除")`。
 3.  为删除按钮编写后端函数，该函数执行 `os.remove()` 或 `shutil.rmtree()`，然后返回 `gr.update(...)` 来刷新 `FileExplorer`。
 
-### 第四步：实现信号驱动的自动刷新
+### 第四步：信号驱动的自动刷新
 1.  **创建信号文件**：修改**所有 `iframe` 编辑应用**的后端。当它们完成处理并根据**第二步**的规则保存好文件后，必须在对应的目录下额外创建一个空的**信号文件**（如 `.result.png.done`）。
 2.  **监听信号文件**：在主应用 `AIO_gradio_app.py` 中，创建一个轻量级的后台线程/循环，递归地检查 `shared_workspace/**/*.done` 是否存在。
 3.  **触发刷新**：监听到 `.done` 文件后，立即删除该信号文件，并调用函数更新 `FileExplorer` 组件。
@@ -89,7 +90,3 @@ graph TD
 1.  主应用后端获取被选文件的相对路径。
 2.  构建新的 URL，将文件路径作为查询参数，例如：`http://.../tool-a/?file_to_edit={session_id}/cat_head.png`。
 3.  `iframe` 应用的后端从 URL 解析出路径，并可以从路径中推断出当前的工作目录 (`os.path.dirname`)。
-
-## 5. 结论
-
-v3.0 方案通过引入结构化文件归档，完美地将工作流的上下文逻辑融入了文件系统中。结合信号驱动的刷新机制和解耦的通信模式，此方案形成了一个完整、健壮、高效且可扩展的架构，为后续的编码实现提供了无懈可击的指导。
