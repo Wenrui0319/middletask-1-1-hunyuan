@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 import torch
 from skimage import color
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List # 确保 List, Dict, Any 都已导入
 import os
 import tempfile
 from PIL import Image
@@ -29,7 +29,6 @@ def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
     if rgba_array is None:
         return None
     try:
-        # 使用tempfile创建一个唯一命名的文件
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
             temp_path = temp_file.name
         
@@ -39,7 +38,6 @@ def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
     except Exception as e:
         print(f"Error saving temp png: {e}")
         return None
-
 
 def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> np.ndarray:
     if not annotations: return image
@@ -58,11 +56,19 @@ def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> n
     return (color_mask * 255).astype(np.uint8)
 
 def cut_out_object(original_image: np.ndarray, mask: np.ndarray):
+    """
+    根据蒙版抠出物体，并将透明区域的RGB值清零。
+    """
     if original_image is None or mask is None:
         gr.Warning("请先生成一个蒙版。")
         return None
+    
     rgba_image = cv2.cvtColor(original_image, cv2.COLOR_RGB2RGBA)
     rgba_image[:, :, 3] = mask * 255
+    
+    transparent_pixels = rgba_image[:, :, 3] == 0
+    rgba_image[transparent_pixels, :3] = 0
+    
     return rgba_image
 
 @torch.no_grad()
@@ -75,7 +81,6 @@ def generate_everything(predictor: SamPredictor, original_image: np.ndarray, pro
     progress(0.6, desc="正在创建彩色蒙版和抠图...")
     color_mask = create_color_mask(original_image, annotations)
     
-    # --- 修改：将抠图结果保存为文件路径 ---
     cutout_paths = []
     for ann in sorted(annotations, key=(lambda x: x['area']), reverse=True):
         rgba_array = cut_out_object(original_image, ann['segmentation'])
