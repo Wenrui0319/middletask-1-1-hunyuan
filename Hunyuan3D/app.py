@@ -2,6 +2,19 @@
 
 import os
 import torch
+import shutil
+import gradio as gr
+import uvicorn
+import time
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+import trimesh
+
+import hunyuan_logic
+import sam_logic
+from sam_logic import SAM_AVAILABLE
+import file_operations
 
 try:
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gradio_tmp")
@@ -11,18 +24,8 @@ try:
 except Exception as e:
     print(f"Warning: Could not create or set local Gradio temp directory: {e}")
 
-
-import shutil
-import gradio as gr
-import uvicorn
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-import trimesh
-
-import hunyuan_logic
-import sam_logic
-from sam_logic import SAM_AVAILABLE
+# 确保data目录结构存在
+os.makedirs("data/sam", exist_ok=True)
 
 def build_app():
     title = 'Hunyuan3D-2: High Resolution Textured 3D Assets Generation'
@@ -56,6 +59,15 @@ def build_app():
                     file_out = gr.File(label="File", visible=False)
                     file_out2 = gr.File(label="File", visible=False)
 
+                with gr.Group():
+                    file_explorer = gr.FileExplorer(root_dir="data/", file_count="multiple", label="Select Input File", show_label=True)
+                    with gr.Row():
+                        delete_btn = gr.Button("Delete Selected Files")
+                        upload_btn = gr.Button("Upload Selected File")
+                        download_btn = gr.Button("Download Selected Files")
+
+                    selected_files = gr.State([])
+                    temp_download = gr.File(label="Download", visible=False)
 
             with gr.Column(scale=9):
                 with gr.Tabs() as tabs_output:
@@ -205,7 +217,8 @@ def build_app():
         decode_mode.change(on_decode_mode_change, inputs=[decode_mode], outputs=[octree_resolution])
 
         def on_export_click(file_out_val, file_out2_val, file_type_val, reduce_face_val, export_texture_val, target_face_num_val):
-            if file_out_val is None: raise gr.Error('Please generate a mesh first.')
+            if file_out_val is None: 
+                raise gr.Error('Please generate a mesh first.')
             if export_texture_val:
                 mesh = trimesh.load(file_out2_val.name)
                 save_folder = hunyuan_logic.gen_save_folder()
@@ -245,6 +258,47 @@ def build_app():
         cut_everything_btn.click(fn=sam_logic.generate_everything, inputs=[sam_predictor_state, sam_original_image_state], outputs=[interactive_display, cutout_gallery])
         cut_out_btn.click(fn=sam_logic.single_cutout, inputs=[sam_original_image_state, sam_mask_state], outputs=[cutout_gallery])
         reset_btn.click(fn=sam_logic.reset_all_sam, inputs=[sam_predictor_state, sam_original_image_state], outputs=sam_upload_and_reset_outputs)
+        
+        # File operation event handlers
+        file_explorer.change(
+            fn=file_operations.handle_file_selection,
+            inputs=[file_explorer],
+            outputs=[selected_files]
+        )
+        
+        delete_btn.click(
+            fn=file_operations.delete_selected_files,
+            inputs=[selected_files],
+            outputs=[file_explorer]
+        )
+        
+        upload_btn.click(
+            fn=file_operations.upload_selected_image,
+            inputs=[selected_files],
+            outputs=[image]
+        )
+        
+        download_btn.click(
+            fn=file_operations.download_selected_files,
+            inputs=[selected_files],
+            outputs=[temp_download]
+        ).then(
+            fn=None,
+            inputs=[temp_download],
+            js="""
+            (file) => {
+                if (file && file.url) {
+                    // Create a temporary link and trigger download
+                    const a = document.createElement('a');
+                    a.href = file.url;
+                    a.download = file.orig_name || 'selected_files.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            }
+            """
+        )
     
     return demo
 
@@ -256,7 +310,7 @@ if __name__ == '__main__':
     parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-0')
     parser.add_argument("--texgen_model_path", type=str, default='tencent/Hunyuan3D-2')
     parser.add_argument('--port', type=int, default=8080)
-    parser.add_argument('--host', type=str, default='0.0.0.0')
+    parser.add_argument('--host', type=str, default='127.0.0.1')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--mc_algo', type=str, default='mc')
     parser.add_argument('--cache-path', type=str, default='gradio_cache')
@@ -283,10 +337,11 @@ if __name__ == '__main__':
     if SAM_AVAILABLE:
         print("\n--- [SAM] 准备预加载SAM模型...")
         sam_model_dir = "models"
-        if not os.path.exists(sam_model_dir): os.makedirs(sam_model_dir)
+        if not os.path.exists(sam_model_dir): 
+            os.makedirs(sam_model_dir)
         available_sam_models = [x for x in os.listdir(sam_model_dir) if x.endswith(".pth")]
         if available_sam_models:
-            default_sam_model = available_sam_models[0]
+            default_sam_model = 'sam_vit_b_01ec64.pth' or available_sam_models[0]
             print(f"    > 找到默认SAM模型: {default_sam_model}")
             sam_predictor_global = sam_logic.load_sam_model(default_sam_model, args.device)
         else:
