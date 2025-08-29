@@ -61,4 +61,15 @@
 王雯睿：人体生成和衣服生成方面模型调研和测试；
 黄耀祖：用于工作流测试的图像数据集，风格需要接近混元demo上的examples，元素：有/无背景，服饰纹理比较简单的人物，视角不是正面的角色，不同姿势的角色，含有不同程度遮挡的图等
 
-##
+## 第四周
+### 人体和衣物生成
+基于Qwen的局部重绘（InPainting）
+已部署好comfyUI工作流
+人体生成流程：
+1. 绘制重绘区域（衣物，可以略微超界，方便模型做平滑过渡）
+2. 正/负提示词（括号代表权重）：
+   (masterpiece, best quality, photorealistic, 3D render:1.2), 1girl, ((perfect anatomy)), ((realistic skin texture)), (((detailed navel))), (clavicle), (slender body, slim waist, toned stomach), (simple white bikini, minimal underwear), grey background
+   (clothing, dress, skirt, hanfu, robe, clothes:1.5), pink, red, jewelry, accessories, ribbon, tassel, fabric, pattern, complex patterns, blurry, deformed, mutated, fused fingers, extra limbs
+3. 参数微调：蒙版模糊、重回幅度、迭代次数等
+4. 生成。根据结果再微调条件、参数，或者二次加工。
+最好的方法，是引入VLM来帮助编写Post Json。
