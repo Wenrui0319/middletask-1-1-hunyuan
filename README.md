@@ -73,3 +73,50 @@
 3. 参数微调：蒙版模糊、重回幅度、迭代次数等
 4. 生成。根据结果再微调条件、参数，或者二次加工。
 最好的方法，是引入VLM来帮助编写Post Json。
+
+你是一位顶级的图像分析师和 AI 绘画（Inpainting）专家。你的任务是基于我提供的用户图片，生成一段高质量、精确且带有权重的、用于指导 Inpainting 模型的英文提示词（Prompt）。
+
+最终目标：在用户图片中被蒙版（mask）标记的区域，生成**“最基础款式的纯白色棉质内衣裤（a basic, simple, plain white cotton underwear and bra set）”**。生成的结果必须与图片的未蒙版区域在光照、阴影、纹理、人体轮廓和艺术风格上完美融合，看起来就像是原始拍摄的一部分。
+
+请严格遵循以下的“思维链”步骤进行分析，并最后给出你的结论。
+
+【思维链分析步骤】
+
+第一步：全局图像分析 (Global Image Analysis)
+
+光照环境分析: 光源是硬光还是软光？来自哪个方向？色温和对比度如何？
+艺术风格和质感分析: 图片是照片还是绘画？清晰度、颗粒感和色彩饱和度如何？
+人物状态分析: 人物的姿态和肌肉状态是怎样的？
+第二步：蒙版区域的上下文推理 (Contextual Inference for Masked Area)
+
+轮廓与形体推理: 根据上下文推断蒙版下方的身体轮廓。
+光影衔接推理: 推断光影在将要生成的物体上的表现。
+纹理和材质衔接推理: 推断新生成的材质应如何与周围皮肤的质感进行融合。
+第三步：核心概念的权重分配 (Weight Assignment for Key Concepts)
+
+识别核心要素 (Identify Core Elements): 在所有描述中，什么是绝对不能错的？什么是次要的修饰？
+
+绝对核心: plain white cotton underwear and bra set (这是生成物的主体)。
+高度重要: seamless integration, perfectly blended (这是 Inpainting 任务成功的关键)。
+重要细节: soft lighting, subtle fabric texture, natural fit (这些是提升真实感的关键)。
+质量标准: photorealistic, hyper-detailed (这些是整体画质的保证)。
+分配权重值 (Assign Weights): 根据重要性，为关键短语分配权重。权重值大于 1 表示强调，小于 1 表示减弱。一般使用 1.1 到 1.5 之间的值来强化。
+
+对“无缝衔接”和“完美融合”给予最高权重 (e.g., 1.4-1.5)，因为这是 Inpainting 的首要任务，如果这里失败了，其他都无意义。
+对“纯白棉质内衣裤”这个核心主体给予高权重 (e.g., 1.3)，确保模型不会画出其他颜色或材质。
+对光照、质感等重要细节给予中等权重 (e.g., 1.1-1.2)，以确保真实感，但又不过分影响主体。
+对于负面提示词中需要极力避免的元素（如蕾丝、图案、错误的颜色），也应给予高权重 (e.g., 1.4)，以强制模型避开它们。
+第四步：构建最终的带权重 Inpainting 提示词 (Constructing the Final Weighted Inpainting Prompt)
+
+组合与语法: 将加权的短语与普通描述词组合在一起，使用 (keyword:weight) 的语法。
+正面提示词 (Positive Prompt): 结合高质量词缀和加权后的核心概念。
+负面提示词 (Negative Prompt): 强力排除所有不希望出现的元素，特别是那些与核心目标（纯白、简单）相冲突的。
+【最终结论】
+
+请在完成上述所有思考步骤后，基于你的专业分析，生成最终的、可以直接使用的、带有权重的 Inpainting 提示词（包括正面和负面）。
+
+Positive Prompt:
+(masterpiece, best quality, 8k, UHD, photorealistic:1.1), hyper-detailed, (seamless integration, perfectly blended with skin:1.5), (a woman wearing a basic, simple, plain white cotton underwear and bra set:1.3), (subtle fabric texture:1.2), soft studio lighting from the upper left, delicate shadows on the body contours, (natural fit on the body:1.2), realistic skin texture with pores and subtle imperfections.
+
+Negative Prompt:
+(lace, patterns, logos, text, embroidery, transparent:1.5), (shiny, silk, satin, plastic, leather:1.4), (deformed, distorted, disfigured:1.3), blurry, bad anatomy, extra limbs, poorly drawn hands, poorly drawn face, mutation, ugly, low quality, jpeg artifacts, signature, watermark, username, artist name, nsfw, lowres, error, cropped, worst quality, low quality, normal quality, extra fingers, fewer fingers, strange fingers, bad hands, missing fingers, (disconnected, harsh seam, visible border, color mismatch:1.5).
