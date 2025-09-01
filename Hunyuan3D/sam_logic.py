@@ -5,10 +5,28 @@ import numpy as np
 import cv2
 import torch
 from skimage import color
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional # 确保 List, Dict, Any 都已导入
 import os
 import tempfile
+import time
 from PIL import Image
+
+sam_predictor_global = None
+
+def initialize_sam(args):
+    global sam_predictor_global
+    if SAM_AVAILABLE:
+        print("\n--- [SAM] 准备预加载SAM模型...")
+        sam_model_dir = "models"
+        if not os.path.exists(sam_model_dir):
+            os.makedirs(sam_model_dir)
+        available_sam_models = [x for x in os.listdir(sam_model_dir) if x.endswith(".pth")]
+        if available_sam_models:
+            default_sam_model = 'sam_vit_b_01ec64.pth' or available_sam_models[0]
+            print(f"    > 找到默认SAM模型: {default_sam_model}")
+            # sam_predictor_global = load_sam_model(default_sam_model, args.device)
+        else:
+            print("    > 警告: 在 'models' 文件夹中未找到SAM模型。SAM功能将不可用，直到手动选择模型。")
 
 try:
     from segment_anything import (
@@ -29,7 +47,6 @@ def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
     if rgba_array is None:
         return None
     try:
-        # 使用tempfile创建一个唯一命名的文件
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
             temp_path = temp_file.name
         
@@ -40,6 +57,59 @@ def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
         print(f"Error saving temp png: {e}")
         return None
 
+def save_rgba_to_data_png(rgba_array: np.ndarray, filename: str) -> Optional[str]:
+    """将一个RGBA NumPy数组保存到 'data/sam' 文件夹，并返回其路径。"""
+    if rgba_array is None or not filename:
+        return None
+
+    data_sam_dir = os.path.abspath(os.path.join("data", "sam"))
+    os.makedirs(data_sam_dir, exist_ok=True) 
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise ValueError("Filename contains invalid path characters.")
+    if not filename.lower().endswith(".png"):
+        filename += ".png"
+
+    full_path = os.path.join(data_sam_dir, filename)
+    
+    if not os.path.abspath(full_path).startswith(data_sam_dir):
+        raise ValueError("Attempted to save file outside of 'data/sam' directory.")
+
+    try:
+        pil_image = Image.fromarray(rgba_array, 'RGBA')
+        pil_image.save(full_path)
+        return full_path
+    except Exception as e:
+        gr.Error(f"保存图片至data/sam文件夹失败")
+        return None
+
+def handle_save_cutouts(image_list: List[Tuple[str, Any]]) -> str:
+    if not image_list:
+        gr.Warning("没有抠图结果可保存。")
+        return None
+
+    saved_count = 0
+    for item in image_list:
+        temp_file_path = item[0]
+        try:
+            img = Image.open(temp_file_path).convert("RGBA")
+            rgba_array = np.array(img)
+            
+            original_basename = os.path.basename(temp_file_path)
+            timestamp = int(time.time() * 1000)
+            new_filename = f"cutout_{timestamp}.png"
+
+            full_path = save_rgba_to_data_png(rgba_array, new_filename)
+            if full_path:
+                saved_count += 1
+        except Exception as e:
+            gr.Error(f"保存文件失败: {os.path.basename(temp_file_path)}. 错误信息: {e}")
+
+    if saved_count > 0:
+        gr.Info(f"成功保存 {saved_count} 个抠图到 data/sam 文件夹。")
+        return None
+    else:
+        gr.Info(f"没有新的抠图被保存。")
+        return None
 
 def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> np.ndarray:
     if not annotations: return image
@@ -58,11 +128,19 @@ def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> n
     return (color_mask * 255).astype(np.uint8)
 
 def cut_out_object(original_image: np.ndarray, mask: np.ndarray):
+    """
+    根据蒙版抠出物体，并将透明区域的RGB值清零。
+    """
     if original_image is None or mask is None:
         gr.Warning("请先生成一个蒙版。")
         return None
+    
     rgba_image = cv2.cvtColor(original_image, cv2.COLOR_RGB2RGBA)
     rgba_image[:, :, 3] = mask * 255
+    
+    transparent_pixels = rgba_image[:, :, 3] == 0
+    rgba_image[transparent_pixels, :3] = 0
+    
     return rgba_image
 
 @torch.no_grad()
@@ -75,7 +153,6 @@ def generate_everything(predictor: SamPredictor, original_image: np.ndarray, pro
     progress(0.6, desc="正在创建彩色蒙版和抠图...")
     color_mask = create_color_mask(original_image, annotations)
     
-    # --- 修改：将抠图结果保存为文件路径 ---
     cutout_paths = []
     for ann in sorted(annotations, key=(lambda x: x['area']), reverse=True):
         rgba_array = cut_out_object(original_image, ann['segmentation'])
@@ -221,3 +298,60 @@ def reset_all_sam(predictor, original_image):
         predictor.set_image(original_image)
         gr.Info("已重置。")
     return original_image, original_image, None, [], None, predictor, None
+
+def create_sam_ui(sam_predictor_global, image):
+    sam_predictor_state = gr.State(sam_predictor_global)
+    sam_original_image_state = gr.State(None)
+    sam_mask_state = gr.State(None)
+    sam_history_state = gr.State([])
+    sam_box_start_state = gr.State(None)
+
+    with gr.Row(equal_height=True):
+        with gr.Column(scale=2, min_width=250):
+            sam_model_dir = "models"
+            if not os.path.exists(sam_model_dir): os.makedirs(sam_model_dir)
+            available_sam_models = [x for x in os.listdir(sam_model_dir) if x.endswith(".pth")]
+            default_sam_model = available_sam_models[0] if available_sam_models else None
+            
+            with gr.Group():
+                selected_model = gr.Dropdown(choices=available_sam_models, label="切换SAM模型 (可选)", value=default_sam_model)
+            
+            with gr.Group():
+                mode_radio = gr.Radio(choices=["添加点 (Add Point)", "画框 (Draw Box)"], value="添加点 (Add Point)", label="工具 (Tool)")
+                cut_everything_btn = gr.Button("分割所有物体")
+                cut_out_btn = gr.Button("抠图")
+                reset_btn = gr.Button("重置提示")
+        
+        with gr.Column(scale=5):
+            interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400)
+            cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
+            save_to_data_btn = gr.Button("保存抠图到数据文件夹")
+    
+    selected_model.change(fn=load_sam_model, inputs=[selected_model, gr.State('cuda')], outputs=[sam_predictor_state])
+    
+    interactive_display.select(
+        fn=interactive_predict,
+        inputs=[sam_predictor_state, sam_original_image_state, sam_history_state, mode_radio, sam_box_start_state],
+        outputs=[interactive_display, sam_mask_state, sam_history_state, sam_predictor_state, sam_box_start_state]
+    )
+    
+    cut_everything_btn.click(fn=generate_everything, inputs=[sam_predictor_state, sam_original_image_state], outputs=[interactive_display, cutout_gallery])
+    cut_out_btn.click(fn=single_cutout, inputs=[sam_original_image_state, sam_mask_state], outputs=[cutout_gallery])
+    reset_btn.click(fn=reset_all_sam, inputs=[sam_predictor_state, sam_original_image_state], outputs=[interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state])
+    
+    save_to_data_btn.click(
+        fn=handle_save_cutouts,
+        inputs=[cutout_gallery],
+        outputs=[]
+    )
+    
+    sam_upload_and_reset_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
+    sam_clear_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_box_start_state]
+    
+    def set_image_wrapper(img):
+        return set_image_for_predictor(sam_predictor_state, img)
+
+    image.clear(
+        fn=clear_sam_panel,
+        outputs=sam_clear_outputs
+    )
