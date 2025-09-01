@@ -5,9 +5,10 @@ import numpy as np
 import cv2
 import torch
 from skimage import color
-from typing import Tuple, Dict, Any, List # 确保 List, Dict, Any 都已导入
+from typing import Tuple, Dict, Any, List, Optional # 确保 List, Dict, Any 都已导入
 import os
 import tempfile
+import time
 from PIL import Image
 
 try:
@@ -37,6 +38,60 @@ def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
         return temp_path
     except Exception as e:
         print(f"Error saving temp png: {e}")
+        return None
+
+def save_rgba_to_data_png(rgba_array: np.ndarray, filename: str) -> Optional[str]:
+    """将一个RGBA NumPy数组保存到 'data/sam' 文件夹，并返回其路径。"""
+    if rgba_array is None or not filename:
+        return None
+
+    data_sam_dir = os.path.abspath(os.path.join("data", "sam"))
+    os.makedirs(data_sam_dir, exist_ok=True) 
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise ValueError("Filename contains invalid path characters.")
+    if not filename.lower().endswith(".png"):
+        filename += ".png"
+
+    full_path = os.path.join(data_sam_dir, filename)
+    
+    if not os.path.abspath(full_path).startswith(data_sam_dir):
+        raise ValueError("Attempted to save file outside of 'data/sam' directory.")
+
+    try:
+        pil_image = Image.fromarray(rgba_array, 'RGBA')
+        pil_image.save(full_path)
+        return full_path
+    except Exception as e:
+        gr.Error(f"保存图片至data/sam文件夹失败")
+        return None
+
+def handle_save_cutouts(image_list: List[Tuple[str, Any]]) -> str:
+    if not image_list:
+        gr.Warning("没有抠图结果可保存。")
+        return None
+
+    saved_count = 0
+    for item in image_list:
+        temp_file_path = item[0]
+        try:
+            img = Image.open(temp_file_path).convert("RGBA")
+            rgba_array = np.array(img)
+            
+            original_basename = os.path.basename(temp_file_path)
+            timestamp = int(time.time() * 1000)
+            new_filename = f"cutout_{timestamp}.png"
+
+            full_path = save_rgba_to_data_png(rgba_array, new_filename)
+            if full_path:
+                saved_count += 1
+        except Exception as e:
+            gr.Error(f"保存文件失败: {os.path.basename(temp_file_path)}. 错误信息: {e}")
+
+    if saved_count > 0:
+        gr.Info(f"成功保存 {saved_count} 个抠图到 data/sam 文件夹。")
+        return None
+    else:
+        gr.Info(f"没有新的抠图被保存。")
         return None
 
 def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> np.ndarray:

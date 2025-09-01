@@ -78,6 +78,7 @@ def build_app():
                                 geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290)
                                 btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
                                 btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=hunyuan_logic.HAS_TEXTUREGEN, min_width=100)
+                                save_3d_btn = gr.Button("保存3D文件")
                                 with gr.Tabs() as export_tabs:
                                     with gr.Tab("Options", id='tab_options', visible=hunyuan_logic.TURBO_MODE):
                                         gen_mode = gr.Radio(label='Generation Mode', info='Recommendation: Turbo for most cases, Fast for very complex cases, Standard seldom use.', choices=['Turbo', 'Fast', 'Standard'], value='Turbo')
@@ -140,7 +141,8 @@ def build_app():
                             with gr.Column(scale=5):
                                 interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400)
                                 cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
-                        
+                                save_to_data_btn = gr.Button("保存抠图到数据文件夹")
+
 
         gr.HTML(f"""
         <div align="center">
@@ -216,14 +218,14 @@ def build_app():
             else: return gr.update(value=384)
         decode_mode.change(on_decode_mode_change, inputs=[decode_mode], outputs=[octree_resolution])
 
-        def on_export_click(file_out_val, file_out2_val, file_type_val, reduce_face_val, export_texture_val, target_face_num_val):
+        def on_export_click(file_out_val, file_out2_val, file_type_val, reduce_face_val, export_texture_val, target_face_num_val, save_to_path=None):
             if file_out_val is None: 
                 raise gr.Error('Please generate a mesh first.')
             if export_texture_val:
                 mesh = trimesh.load(file_out2_val.name)
-                save_folder = hunyuan_logic.gen_save_folder()
+                save_folder = hunyuan_logic.gen_save_folder(file_path=save_to_path)
                 path = hunyuan_logic.export_mesh(mesh, save_folder, textured=True, type=file_type_val)
-                _ = hunyuan_logic.export_mesh(mesh, hunyuan_logic.gen_save_folder(), textured=True)
+                _ = hunyuan_logic.export_mesh(mesh, hunyuan_logic.gen_save_folder(file_path=save_to_path), textured=True)
                 model_viewer_html = hunyuan_logic.build_model_viewer_html(save_folder, height=hunyuan_logic.HTML_HEIGHT, width=hunyuan_logic.HTML_WIDTH, textured=True)
             else:
                 mesh = trimesh.load(file_out_val.name)
@@ -231,9 +233,9 @@ def build_app():
                 mesh = hunyuan_logic.degenerate_face_remove_worker(mesh)
                 if reduce_face_val:
                     mesh = hunyuan_logic.face_reduce_worker(mesh, target_face_num_val)
-                save_folder = hunyuan_logic.gen_save_folder()
+                save_folder = hunyuan_logic.gen_save_folder(file_path=save_to_path)
                 path = hunyuan_logic.export_mesh(mesh, save_folder, textured=False, type=file_type_val)
-                _ = hunyuan_logic.export_mesh(mesh, hunyuan_logic.gen_save_folder(), textured=False)
+                _ = hunyuan_logic.export_mesh(mesh, hunyuan_logic.gen_save_folder(file_path=save_to_path), textured=False)
                 model_viewer_html = hunyuan_logic.build_model_viewer_html(save_folder, height=hunyuan_logic.HTML_HEIGHT, width=hunyuan_logic.HTML_WIDTH, textured=False)
             return model_viewer_html, gr.update(value=path, interactive=True)
 
@@ -243,6 +245,15 @@ def build_app():
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num],
+            outputs=[html_export_mesh, file_export]
+        )
+
+        save_3d_btn.click(
+            fn=lambda: gr.update(selected=1),
+            outputs=[tabs_output]
+        ).then(
+            on_export_click,
+            inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num, gr.State("data/hunyuan")],
             outputs=[html_export_mesh, file_export]
         )
 
@@ -259,6 +270,12 @@ def build_app():
         cut_out_btn.click(fn=sam_logic.single_cutout, inputs=[sam_original_image_state, sam_mask_state], outputs=[cutout_gallery])
         reset_btn.click(fn=sam_logic.reset_all_sam, inputs=[sam_predictor_state, sam_original_image_state], outputs=sam_upload_and_reset_outputs)
         
+        save_to_data_btn.click(
+            fn=sam_logic.handle_save_cutouts,
+            inputs=[cutout_gallery],
+            outputs=[]
+        )
+
         # File operation event handlers
         file_explorer.change(
             fn=file_operations.handle_file_selection,
@@ -270,12 +287,19 @@ def build_app():
             fn=file_operations.delete_selected_files,
             inputs=[selected_files],
             outputs=[file_explorer]
-        )
-        
+        ).then(
+            fn=lambda: gr.update(root_dir="data/"),
+            outputs=[file_explorer]
+        )        
+
         upload_btn.click(
             fn=file_operations.upload_selected_image,
             inputs=[selected_files],
             outputs=[image]
+        ).then(
+            fn=combine_set_image,
+            inputs=[sam_predictor_state, image],
+            outputs=hunyuan_upload_and_reset_outputs + sam_upload_and_reset_outputs
         )
         
         download_btn.click(

@@ -103,14 +103,18 @@ def get_example_mv_list():
         mv_list.append(view_list)
     return mv_list
 
-def gen_save_folder(max_size=200):
-    os.makedirs(SAVE_DIR, exist_ok=True)
-    dirs = [f for f in Path(SAVE_DIR).iterdir() if f.is_dir()]
+def gen_save_folder(max_size=200, file_path=None):
+    if file_path == None:
+        file_path = SAVE_DIR
+    else:
+        pass
+    os.makedirs(file_path, exist_ok=True)
+    dirs = [f for f in Path(file_path).iterdir() if f.is_dir()]
     if len(dirs) >= max_size:
         oldest_dir = min(dirs, key=lambda x: x.stat().st_ctime)
         shutil.rmtree(oldest_dir)
         print(f"Removed the oldest folder: {oldest_dir}")
-    new_folder = os.path.join(SAVE_DIR, str(uuid.uuid4()))
+    new_folder = os.path.join(file_path, str(uuid.uuid4()))
     os.makedirs(new_folder, exist_ok=True)
     print(f"Created new folder: {new_folder}")
     return new_folder

@@ -18,11 +18,11 @@ def handle_file_selection(file_paths):
 
 
 def delete_selected_files(file_paths):
-    """Delete selected files from the data folder"""
+    """delete selected files from the data folder"""
 
     for file_path in file_paths:
         try:
-            # Security check: ensure the file is within the data directory
+            # security check: ensure the file is within the data directory
             full_path = os.path.abspath(file_path)
             data_dir = os.path.abspath("data/")
             if not full_path.startswith(data_dir):
@@ -33,14 +33,9 @@ def delete_selected_files(file_paths):
                     os.remove(full_path)
                 elif os.path.isdir(full_path):
                     shutil.rmtree(full_path)
-        except Exception as e:
-            print(f"Error deleting file: {e}")
-            return gr.update()
-
-    return gr.FileExplorer(
-        root_dir="data/", file_count="multiple", label="文件列表", show_label=True
-    )
-
+        except exception as e:
+            print(f"error deleting file: {e}")
+    return []
 
 def upload_selected_image(file_paths):
     """Upload selected image using existing image upload logic"""
