@@ -219,4 +219,4 @@ def create_gemini_chat_ui():
             outputs=[chatbot, uploaded_files_state, text_input],
         )
 
-    return demo
+    return uploaded_files_state, text_input

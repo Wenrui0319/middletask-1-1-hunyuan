@@ -285,10 +285,10 @@ def shape_generation(
         torch.cuda.empty_cache()
     return gr.update(value=path), model_viewer_html, stats, seed
 
-def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, image, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2):
+def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2):
     with gr.Row(equal_height=True):
         with gr.Column(scale=2, min_width=250):
-            geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290)
+            geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290, elem_id="hunyuan_input_image")
             btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
             btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=HAS_TEXTUREGEN, min_width=100)
             save_3d_btn = gr.Button("保存3D文件")
@@ -328,13 +328,13 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, i
         
         btn.click(
             shape_generation,
-            inputs=[caption, image, mv_image_front, mv_image_back, mv_image_left, mv_image_right, num_steps, cfg_scale, seed, octree_resolution, check_box_rembg, num_chunks, randomize_seed],
+            inputs=[caption, geneting_image, mv_image_front, mv_image_back, mv_image_left, mv_image_right, num_steps, cfg_scale, seed, octree_resolution, check_box_rembg, num_chunks, randomize_seed],
             outputs=[file_out, html_gen_mesh, stats, seed]
         )
         
         btn_all.click(
             generation_all,
-            inputs=[caption, image, mv_image_front, mv_image_back, mv_image_left, mv_image_right, num_steps, cfg_scale, seed, octree_resolution, check_box_rembg, num_chunks, randomize_seed],
+            inputs=[caption, geneting_image, mv_image_front, mv_image_back, mv_image_left, mv_image_right, num_steps, cfg_scale, seed, octree_resolution, check_box_rembg, num_chunks, randomize_seed],
             outputs=[file_out, file_out2, html_gen_mesh, stats, seed]
         )
 

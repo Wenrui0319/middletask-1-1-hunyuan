@@ -169,7 +169,7 @@ def create_qwen_edit_ui():
             with gr.Column(scale=2):
                 with gr.Tabs() as tabs:
                     with gr.TabItem("图像编辑区 (Image Edit Area)"):
-                        input_img = gr.Image(label="上传或拖拽图像 (Upload or Drag Image)", interactive=True, height=700, type="numpy")
+                        input_img = gr.Image(label="上传或拖拽图像 (Upload or Drag Image)", interactive=True, height=700, type="numpy", elem_id="qwen_edit_input_image")
                     with gr.TabItem("生成结果 (Result)"):
                         output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700)
                     with gr.TabItem("对比图 (Comparison)"):
@@ -179,4 +179,4 @@ def create_qwen_edit_ui():
         all_outputs = [status_text, output_img, comparison_img, edit_btn]
     
         edit_btn.click(fn=run_generation, inputs=all_inputs, outputs=all_outputs)
-    return demo
+    return input_img

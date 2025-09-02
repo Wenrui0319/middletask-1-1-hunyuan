@@ -141,6 +141,8 @@ async def run_generation(prompt, neg_prompt, input_img, sampler, scheduler, step
 
 
 def download_masked_image(image_dict):
+    if image_dict is None or 'background' not in image_dict or image_dict['background'] is None:
+        return None
     base_image_pil = Image.fromarray(image_dict['background'])
     
     # 1. 转换图像为RGBA，此时Alpha通道默认为255（不透明）
@@ -251,9 +253,10 @@ def create_qwen_inpainting_ui():
             with gr.Column(scale=2):
                 with gr.Tabs() as tabs:
                     with gr.TabItem("重绘区域 (Inpaint Area)"):
-                        input_img = gr.ImageEditor(label="上传并编辑图像 (Upload and Edit Image)", interactive=True, height=700, type="numpy")
+                        input_img = gr.ImageEditor(label="上传并编辑图像 (Upload and Edit Image)", interactive=True, height=700, type="numpy", elem_id="qwen_inpainting_input_image")
                         with gr.Row():
-                            download_mask_btn = gr.DownloadButton("下载含遮罩图像", value=download_masked_image, inputs=[input_img])
+                            download_mask_btn = gr.Button("下载含遮罩图像")
+                            hidden_download_file = gr.File(visible=False)
                             upload_mask_btn = gr.UploadButton("上传含遮罩图像", file_types=["image"])
                     with gr.TabItem("生成图 (Result)"):
                         output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700)
@@ -272,4 +275,25 @@ def create_qwen_inpainting_ui():
             outputs=[input_img],
             queue=False
         )
-    return demo
+
+        download_mask_btn.click(
+            fn=download_masked_image,
+            inputs=[input_img],
+            outputs=[hidden_download_file]
+        ).then(
+            fn=None,
+            inputs=[hidden_download_file],
+            js="""
+            (file) => {
+                if (file && file.url) {
+                    const a = document.createElement('a');
+                    a.href = file.url;
+                    a.download = file.orig_name || 'masked_image.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            }
+            """
+        )
+    return input_img

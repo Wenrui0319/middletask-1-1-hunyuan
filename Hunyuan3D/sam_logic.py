@@ -24,7 +24,7 @@ def initialize_sam(args):
         if available_sam_models:
             default_sam_model = 'sam_vit_b_01ec64.pth' or available_sam_models[0]
             print(f"    > 找到默认SAM模型: {default_sam_model}")
-            # sam_predictor_global = load_sam_model(default_sam_model, args.device)
+            sam_predictor_global = load_sam_model(default_sam_model, args.device)
         else:
             print("    > 警告: 在 'models' 文件夹中未找到SAM模型。SAM功能将不可用，直到手动选择模型。")
 
@@ -182,23 +182,30 @@ def load_sam_model(name: str, device: str, progress=gr.Progress()) -> SamPredict
     except Exception as e:
         raise gr.Error(f"加载SAM模型失败: {e}")
 
-def set_image_for_predictor(predictor: SamPredictor, image_pil):
-    if image_pil is None:
-        return None, None, None, [], None, predictor, None
-    
-    image_np = np.array(image_pil.convert("RGB"))
+def set_image_for_predictor(predictor: SamPredictor, image_np_in):
+    if image_np_in is None:
+        # When clearing, we just need to clear the states.
+        return None, None, [], None, predictor, None
+
+    # The incoming array might be RGBA from the image component, we need RGB for the predictor.
+    if image_np_in.shape[2] == 4:
+        image_rgb_np = image_np_in[..., :3]
+    else:
+        image_rgb_np = image_np_in
 
     if predictor is None:
         gr.Warning("SAM模型尚未加载。")
-        return image_np, image_np, None, [], None, None, None
+        # The first return value corresponds to sam_original_image_state
+        return image_rgb_np, None, [], None, None, None
         
     try:
-        predictor.set_image(image_np)
+        predictor.set_image(image_rgb_np)
         gr.Info("图片已为SAM设置。")
-        return image_np, image_np, None, [], None, predictor, None
+        # Update states, but don't return a value for the interactive_display itself.
+        return image_rgb_np, None, [], None, predictor, None
     except Exception as e:
         gr.Error(f"为SAM设置图片时出错: {e}")
-        return image_np, image_np, None, [], None, predictor, None
+        return image_rgb_np, None, [], None, predictor, None
 
 def clear_sam_panel():
     return None, None, None, [], None, None
@@ -299,7 +306,7 @@ def reset_all_sam(predictor, original_image):
         gr.Info("已重置。")
     return original_image, original_image, None, [], None, predictor, None
 
-def create_sam_ui(sam_predictor_global, image):
+def create_sam_ui(sam_predictor_global):
     sam_predictor_state = gr.State(sam_predictor_global)
     sam_original_image_state = gr.State(None)
     sam_mask_state = gr.State(None)
@@ -323,7 +330,7 @@ def create_sam_ui(sam_predictor_global, image):
                 reset_btn = gr.Button("重置提示")
         
         with gr.Column(scale=5):
-            interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400)
+            interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400, elem_id="sam_input_image")
             cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
             save_to_data_btn = gr.Button("保存抠图到数据文件夹")
     
@@ -345,13 +352,17 @@ def create_sam_ui(sam_predictor_global, image):
         outputs=[]
     )
     
-    sam_upload_and_reset_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
-    sam_clear_outputs = [interactive_display, sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_box_start_state]
+    # Define outputs for setting a new image. Note that this list does NOT include
+    # the interactive_display itself, to prevent an infinite update loop.
+    # The interactive_display is updated by dispatch_image, and this .change event
+    # is only for updating the internal states of the SAM model.
+    sam_set_image_outputs = [sam_original_image_state, sam_mask_state, sam_history_state, cutout_gallery, sam_predictor_state, sam_box_start_state]
     
-    def set_image_wrapper(img):
-        return set_image_for_predictor(sam_predictor_state, img)
-
-    image.clear(
-        fn=clear_sam_panel,
-        outputs=sam_clear_outputs
+    interactive_display.change(
+        fn=set_image_for_predictor,
+        inputs=[sam_predictor_state, interactive_display],
+        outputs=sam_set_image_outputs,
+        show_progress="none"
     )
+
+    return interactive_display

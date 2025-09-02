@@ -6,6 +6,7 @@ import shutil
 import gradio as gr
 import uvicorn
 import time
+import gradio as gr
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -61,28 +62,33 @@ def build_app():
                         with gr.Group():
                             file_explorer = gr.FileExplorer(root_dir="data/", file_count="multiple", label="Select Input File", show_label=True, height=600)
                             with gr.Row():
-                                delete_btn = gr.Button("Delete Selected Files")
-                                upload_btn = gr.Button("Upload Selected File")
-                                download_btn = gr.Button("Download Selected Files")
+                                delete_btn = gr.Button("Delete")
+                                upload_btn = gr.Button("Edit")
+                                local_upload_btn = gr.UploadButton("Upload", file_count="multiple")
+                                download_btn = gr.Button("Download")
         
                             selected_files = gr.State([])
                             temp_download = gr.File(label="Download", visible=False)
 
             with gr.Column(scale=9):
+                # This state will hold the name of the currently selected editor tab
+                active_tab_state = gr.State("SAM")
+
                 with gr.Tabs() as tabs_output:
-                    with gr.Tab('SAM', visible=SAM_AVAILABLE):
-                        sam_logic.create_sam_ui(sam_logic.sam_predictor_global, image)
-                    with gr.Tab('Hunyuan3D'):
-                        geneting_image = hunyuan_logic.create_hunyuan_ui(hunyuan_logic.SUPPORTED_FORMATS, hunyuan_logic.HTML_OUTPUT_PLACEHOLDER, tabs_output, image, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2)
+                    with gr.Tab('SAM', visible=SAM_AVAILABLE, id="SAM"):
+                        sam_input_image = sam_logic.create_sam_ui(sam_logic.sam_predictor_global)
                     
-                    with gr.Tab('Qwen Edit'):
-                        qwen_edit_logic.create_qwen_edit_ui()
+                    with gr.Tab('Qwen Edit', id="Qwen Edit"):
+                        qwen_edit_input_image = qwen_edit_logic.create_qwen_edit_ui()
 
-                    with gr.Tab('Qwen Inpainting'):
-                        qwen_inpainting_logic.create_qwen_inpainting_ui()
+                    with gr.Tab('Qwen Inpainting', id="Qwen Inpainting"):
+                        qwen_inpainting_input_image = qwen_inpainting_logic.create_qwen_inpainting_ui()
 
-                    with gr.Tab('Gemini Chat'):
-                        gemini_gradio_app.create_gemini_chat_ui()
+                    with gr.Tab('Gemini Chat', id="Gemini Chat"):
+                        gemini_uploaded_files_state, gemini_text_input = gemini_gradio_app.create_gemini_chat_ui()
+                        
+                    with gr.Tab('Hunyuan3D', id="Hunyuan3D"):
+                        hunyuan_input_image = hunyuan_logic.create_hunyuan_ui(hunyuan_logic.SUPPORTED_FORMATS, hunyuan_logic.HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2)
                         
 
 
@@ -109,25 +115,35 @@ def build_app():
 
 
         # File operation event handlers
+
+        # This event updates the active_tab_state whenever the user changes tabs
+        def on_tab_select(evt: gr.SelectData):
+            return evt.value
+        tabs_output.select(fn=on_tab_select, inputs=None, outputs=[active_tab_state])
+
         file_explorer.change(
             fn=file_operations.handle_file_selection,
             inputs=[file_explorer],
             outputs=[selected_files]
         )
         
+        file_explorer.change(
+            fn=file_operations.preview_image,
+            inputs=[file_explorer],
+            outputs=[image]
+        )
+        
         delete_btn.click(
             fn=file_operations.delete_selected_files,
             inputs=[selected_files],
             outputs=[file_explorer]
-        ).then(
-            fn=lambda: gr.update(root_dir="data/"),
-            outputs=[file_explorer]
         )
 
+        # The "Edit" button now dispatches the image to the active tab's input
         upload_btn.click(
-            fn=file_operations.upload_selected_image,
-            inputs=[selected_files],
-            outputs=[image]
+            fn=file_operations.dispatch_image,
+            inputs=[selected_files, active_tab_state],
+            outputs=[sam_input_image, qwen_edit_input_image, qwen_inpainting_input_image, gemini_uploaded_files_state, gemini_text_input, hunyuan_input_image]
         )
         
         download_btn.click(
@@ -150,6 +166,12 @@ def build_app():
                 }
             }
             """
+        )
+
+        local_upload_btn.upload(
+            fn=file_operations.upload_from_local,
+            inputs=[local_upload_btn],
+            outputs=[file_explorer]
         )
     
     return demo
@@ -174,7 +196,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # hunyuan_logic.initialize_hunyuan(args)
-    sam_logic.initialize_sam(args)
+    # sam_logic.initialize_sam(args)
     # For frontend testing
     hunyuan_logic.args = args
     hunyuan_logic.SAVE_DIR = temp_dir
