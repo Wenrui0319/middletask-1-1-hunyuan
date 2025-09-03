@@ -40,6 +40,17 @@ def build_app(args):
         title = title.replace(':', '-Turbo: Fast ')
 
     with gr.Blocks(theme=gr.themes.Base(), title='Hunyuan-3D-2.0', analytics_enabled=False, css=".gradio-container { max-width: unset !important; padding-left: 20px; padding-right: 20px; }") as demo:
+        # 主界面标题
+        gr.HTML("""
+        <div style="text-align: center;">
+            <h1 style="font-size: 2em; margin: 0; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+                Selective 3D Generation Engine
+            </h1>
+            <h2 style="font-size: 1em; margin: 10px 0 0 0; font-weight: 300; opacity: 0.9;">
+                Middle Task 1 - Team 1 
+            </h2>
+        </div>
+        """)
         with gr.Row():
             with gr.Column(scale=3):
                 with gr.Tabs():
