@@ -287,7 +287,7 @@ def shape_generation(
 
 def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2, file_explorer):
     with gr.Row(equal_height=True):
-        with gr.Column(scale=2, min_width=250):
+        with gr.Column(scale=1, min_width=250):
             geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290, elem_id="hunyuan_input_image")
             btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
             btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=HAS_TEXTUREGEN, min_width=100)
@@ -317,7 +317,7 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
                         confirm_export = gr.Button(value="Transform", min_width=100)
                         file_export = gr.DownloadButton(label="Download", variant='primary', interactive=False, min_width=100)
             
-        with gr.Column(scale=5):
+        with gr.Column(scale=2):
             with gr.Tabs():
                 with gr.Tab('Generated Mesh', id='gen_mesh_panel'):
                     html_gen_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
