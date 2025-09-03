@@ -17,7 +17,7 @@ def check_sam_model_on_load():
     if sam_predictor_global is not None:
         gr.Info("SAM 模型已成功预加载，随时可用！")
     else:
-        gr.Warning("警告：SAM 模型预加载失败。当您上传图片到SAM时，将自动尝试加载。")
+        gr.Warning("警告：SAM 模型预加载失败。当您发送图片到SAM时，将自动尝试加载。")
 
 def initialize_sam(args):
     global sam_predictor_global
@@ -43,6 +43,7 @@ try:
 except ImportError:
     SAM_AVAILABLE = False
 
+# --- 后端逻辑函数 (未改变) ---
 def save_rgba_to_temp_png(rgba_array: np.ndarray) -> str:
     if rgba_array is None: return None
     try:
@@ -209,9 +210,16 @@ def single_cutout(image, mask):
     rgba_array = cut_out_object(image, mask)
     return [save_rgba_to_temp_png(rgba_array)] if rgba_array is not None else None, "抠图完成"
 
+# --- START: 核心修改 ---
 def reset_all_sam(original_image):
-    if original_image is not None: gr.Info("提示已重置。")
-    return "提示已重置", original_image, None, [], None, None
+    if original_image is not None:
+        gr.Info("提示已重置。")
+        # 返回 original_image 以恢复工作区显示
+        return "提示已重置", original_image, None, [], None, None
+    else:
+        # 如果没有原始图片，则全部清空
+        return "就绪", None, None, [], None, None
+# --- END: 核心修改 ---
 
 def create_sam_ui(sam_predictor_global, file_explorer, device):
     sam_predictor_state = gr.State(sam_predictor_global)
@@ -222,11 +230,7 @@ def create_sam_ui(sam_predictor_global, file_explorer, device):
 
     with gr.Row(equal_height=False):
         with gr.Column(scale=1):
-            with gr.Group():
-                # --- START: 核心修改 ---
-                # 这个组件现在可以接收文件路径（来自“编辑”）或Numpy数组（来自直接上传）
-                input_image = gr.Image(label="上传并预览图片", type="numpy", sources=["upload", "clipboard"], height=250, elem_id="sam_input_image_upload")
-                # --- END: 核心修改 ---
+            hidden_image_receiver = gr.Image(type="filepath", visible=False)
             status_text = gr.Textbox(label="状态 (Status)", value="就绪 (Ready)", interactive=False)
             with gr.Group():
                 sam_model_dir = "models"
@@ -240,29 +244,22 @@ def create_sam_ui(sam_predictor_global, file_explorer, device):
                 cut_everything_btn = gr.Button("分割所有物体")
                 cut_out_btn = gr.Button("抠图")
                 reset_btn = gr.Button("重置提示")
-        with gr.Column(scale=2):
-            interactive_display = gr.Image(label="工作区 (在此点击图片进行分割)", type="numpy", interactive=True, height=700, elem_id="sam_interactive_display")
-            with gr.Group():
-                cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
-                save_to_data_btn = gr.Button("保存至工作区")
-    
-    def load_model_if_needed_and_set_image(image_data, predictor, selected_model_name, device_name):
-        # --- START: 核心修改 ---
-        # image_data 现在可能是 Numpy 数组或文件路径字符串
-        if image_data is None:
-            return "请上传图片", None, None, None, [], None, None, None
         
-        # 如果传入的是文件路径，先用PIL加载成Numpy数组
-        image_np = None
-        if isinstance(image_data, str):
-            try:
-                image_np = np.array(Image.open(image_data))
-            except Exception as e:
-                gr.Error(f"从路径加载图片失败: {e}")
-                return f"错误: 加载图片失败", None, None, None, [], None, None, None
-        else: # 否则，它就是Numpy数组
-            image_np = image_data
-        # --- END: 核心修改 ---
+        with gr.Column(scale=2):
+            interactive_display = gr.Image(label="工作区 (从左侧文件浏览器点击'编辑'发送图片)", type="numpy", interactive=True, height=700, sources=None, elem_id="sam_interactive_display")
+            with gr.Group():
+                cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto", interactive=False)
+                save_to_data_btn = gr.Button("保存至工作区")
+
+    def load_model_if_needed_and_set_image(image_filepath, predictor, selected_model_name, device_name):
+        if not image_filepath:
+            return "请从文件浏览器发送图片", None, None, None, [], predictor, None, None
+        
+        try:
+            image_np = np.array(Image.open(image_filepath))
+        except Exception as e:
+            gr.Error(f"从路径加载图片失败: {e}")
+            return f"错误: 加载图片失败", None, None, None, [], predictor, None, None
 
         current_predictor = predictor
         
@@ -273,13 +270,13 @@ def create_sam_ui(sam_predictor_global, file_explorer, device):
             except Exception as e:
                 return f"错误: 模型加载失败!", None, None, None, [], None, None, None
 
-        status, original_img, interactive_img, mask, history, final_predictor, box_start = set_image_for_predictor(current_predictor, image_np)
-        return status, original_img, interactive_img, mask, history, final_predictor, box_start, gr.update(value=None)
+        status, original_img, interactive_img_out, mask, history, final_predictor, box_start = set_image_for_predictor(current_predictor, image_np)
+        return status, original_img, interactive_img_out, mask, history, final_predictor, box_start, gr.update(value=None)
 
     outputs_for_new_image = [status_text, sam_original_image_state, interactive_display, sam_mask_state, sam_history_state, sam_predictor_state, sam_box_start_state, cutout_gallery]
-    input_image.change(
+    hidden_image_receiver.change(
         fn=load_model_if_needed_and_set_image,
-        inputs=[input_image, sam_predictor_state, selected_model, gr.State(device)],
+        inputs=[hidden_image_receiver, sam_predictor_state, selected_model, gr.State(device)],
         outputs=outputs_for_new_image
     )
 
@@ -299,4 +296,4 @@ def create_sam_ui(sam_predictor_global, file_explorer, device):
     
     save_to_data_btn.click(fn=handle_save_cutouts, inputs=[cutout_gallery], outputs=[file_explorer])
     
-    return input_image
+    return hidden_image_receiver
