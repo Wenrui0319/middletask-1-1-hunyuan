@@ -174,7 +174,11 @@ def dispatch_image(files, active_tab_name):
         # Find the index of the active tab
         if active_tab_name in tab_order:
             target_index = tab_order.index(active_tab_name)
-            if active_tab_name == "Gemini Chat":
+
+            if active_tab_name == "SAM":
+                outputs[target_index] = full_path
+
+            elif active_tab_name == "Gemini Chat":
                 import json
                 from pathlib import Path
                 # For Gemini Chat, update the state and textbox, which are at index 3 and 4
