@@ -106,10 +106,10 @@ def handle_save_cutouts(image_list: List[Tuple[str, Any]]) -> str:
 
     if saved_count > 0:
         gr.Info(f"成功保存 {saved_count} 个抠图到 data/sam 文件夹。")
-        return None
+        return gr.FileExplorer(key=str(time.time()))
     else:
         gr.Info(f"没有新的抠图被保存。")
-        return None
+        return gr.FileExplorer(key=str(time.time()))
 
 def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> np.ndarray:
     if not annotations: return image
@@ -306,7 +306,7 @@ def reset_all_sam(predictor, original_image):
         gr.Info("已重置。")
     return original_image, original_image, None, [], None, predictor, None
 
-def create_sam_ui(sam_predictor_global):
+def create_sam_ui(sam_predictor_global, file_explorer):
     sam_predictor_state = gr.State(sam_predictor_global)
     sam_original_image_state = gr.State(None)
     sam_mask_state = gr.State(None)
@@ -332,7 +332,7 @@ def create_sam_ui(sam_predictor_global):
         with gr.Column(scale=5):
             interactive_display = gr.Image(label="交互式显示 (请先在左侧Image Prompt上传图片)", type="numpy", interactive=True, height=400, elem_id="sam_input_image")
             cutout_gallery = gr.Gallery(label="抠图结果", preview=True, object_fit="contain", height="auto")
-            save_to_data_btn = gr.Button("保存抠图到数据文件夹")
+            save_to_data_btn = gr.Button("保存至工作区")
     
     selected_model.change(fn=load_sam_model, inputs=[selected_model, gr.State('cuda')], outputs=[sam_predictor_state])
     
@@ -349,7 +349,7 @@ def create_sam_ui(sam_predictor_global):
     save_to_data_btn.click(
         fn=handle_save_cutouts,
         inputs=[cutout_gallery],
-        outputs=[]
+        outputs=[file_explorer]
     )
     
     # Define outputs for setting a new image. Note that this list does NOT include

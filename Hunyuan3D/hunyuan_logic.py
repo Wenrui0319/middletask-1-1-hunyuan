@@ -285,13 +285,13 @@ def shape_generation(
         torch.cuda.empty_cache()
     return gr.update(value=path), model_viewer_html, stats, seed
 
-def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2):
+def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2, file_explorer):
     with gr.Row(equal_height=True):
         with gr.Column(scale=2, min_width=250):
             geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290, elem_id="hunyuan_input_image")
             btn = gr.Button(value='Gen Shape', variant='primary', min_width=100)
             btn_all = gr.Button(value='Gen Textured Shape', variant='primary', visible=HAS_TEXTUREGEN, min_width=100)
-            save_3d_btn = gr.Button("保存3D文件")
+            save_3d_btn = gr.Button("保存模型至工作区")
             with gr.Tabs() as export_tabs:
                 with gr.Tab("Options", id='tab_options', visible=TURBO_MODE):
                     gen_mode = gr.Radio(label='Generation Mode', info='Recommendation: Turbo for most cases, Fast for very complex cases, Standard seldom use.', choices=['Turbo', 'Fast', 'Standard'], value='Turbo')
@@ -369,7 +369,7 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
                 path = export_mesh(mesh, save_folder, textured=False, type=file_type_val)
                 _ = export_mesh(mesh, gen_save_folder(file_path=save_to_path), textured=False)
                 model_viewer_html = build_model_viewer_html(save_folder, height=HTML_HEIGHT, width=HTML_WIDTH, textured=False)
-            return model_viewer_html, gr.update(value=path, interactive=True)
+            return model_viewer_html, gr.update(value=path, interactive=True), gr.FileExplorer(key=str(time.time()))
 
         confirm_export.click(
             lambda: gr.update(selected=tabs_output.get_tabs()[1]),
@@ -386,6 +386,6 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num, gr.State("data/hunyuan")],
-            outputs=[html_export_mesh, file_export]
+            outputs=[html_export_mesh, file_export, file_explorer]
         )
     return geneting_image

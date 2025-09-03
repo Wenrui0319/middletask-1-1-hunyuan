@@ -140,40 +140,59 @@ async def run_generation(prompt, neg_prompt, input_img, sampler, scheduler, step
 
 
 
-def download_masked_image(image_dict):
+import time
+
+def save_image_to_workspace(image, subfolder, prefix):
+    if image is None:
+        gr.Warning("没有图像可保存。")
+        return gr.FileExplorer(key=str(time.time()))
+
+    try:
+        save_dir = os.path.join("data", subfolder)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        timestamp = int(time.time() * 1000)
+        filename = f"{prefix}_{timestamp}.png"
+        
+        save_path = os.path.join(save_dir, filename)
+        if not os.path.abspath(save_path).startswith(os.path.abspath(save_dir)):
+            raise ValueError("检测到不安全的保存路径。")
+            
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        
+        image.save(save_path)
+        
+        gr.Info(f"图像已保存至 {save_path}")
+        return gr.FileExplorer(key=str(time.time()))
+        
+    except Exception as e:
+        gr.Error(f"保存图像失败: {e}")
+        return gr.FileExplorer(key=str(time.time()))
+
+def process_and_save_masked_image(image_dict):
     if image_dict is None or 'background' not in image_dict or image_dict['background'] is None:
-        return None
+        gr.Warning("没有图像可处理。")
+        return gr.FileExplorer(key=str(time.time()))
+        
     base_image_pil = Image.fromarray(image_dict['background'])
     
-    # 1. 转换图像为RGBA，此时Alpha通道默认为255（不透明）
     output_image = base_image_pil.convert("RGBA")
-    
-    # 2. 手动将整个Alpha通道清零，创建一个透明背景
     alpha = Image.new('L', output_image.size, 0)
     output_image.putalpha(alpha)
 
-    # 3. 检查并应用用户绘制的遮罩
     if 'layers' in image_dict and image_dict['layers']:
         mask_layer = Image.fromarray(image_dict['layers'][0])
         if mask_layer.mode == 'RGBA':
             mask = mask_layer.getchannel('A')
             if np.any(np.array(mask)):
-                # 只在有遮罩的区域粘贴背景，以确保其他区域透明
                 output_image.paste(base_image_pil, (0,0), mask=mask)
                 output_image.putalpha(mask)
 
-
-    # 如果最终图像完全透明（意味着没有遮罩），则以RGB格式保存
     if not np.any(np.array(output_image.getchannel('A'))):
         output_image = output_image.convert("RGB")
 
-    if not os.path.exists("temp_outputs"):
-        os.makedirs("temp_outputs")
-        
-    filepath = f"temp_outputs/downloaded_image_{uuid.uuid4()}.png"
-    output_image.save(filepath)
-    
-    return filepath
+    return save_image_to_workspace(output_image, "qwen_inpainting", "masked")
 
 def upload_masked_image(file_obj):
     if file_obj is None:
@@ -211,7 +230,7 @@ def upload_masked_image(file_obj):
 
 
 # --- 3. Gradio UI Layout ---
-def create_qwen_inpainting_ui():
+def create_qwen_inpainting_ui(file_explorer):
     with gr.Blocks(theme=gr.themes.Base(), analytics_enabled=False, css=".info-icon {display: flex; align-items: center; justify-content: center;}") as demo:
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -255,11 +274,11 @@ def create_qwen_inpainting_ui():
                     with gr.TabItem("重绘区域 (Inpaint Area)"):
                         input_img = gr.ImageEditor(label="上传并编辑图像 (Upload and Edit Image)", interactive=True, height=700, type="numpy", elem_id="qwen_inpainting_input_image")
                         with gr.Row():
-                            download_mask_btn = gr.Button("下载含遮罩图像")
-                            hidden_download_file = gr.File(visible=False)
-                            upload_mask_btn = gr.UploadButton("上传含遮罩图像", file_types=["image"])
+                            save_mask_btn = gr.Button("保存遮罩图像至工作区")
+                            upload_mask_btn = gr.UploadButton("上传含遮罩图像", file_types=["image"], visible=False)
                     with gr.TabItem("生成图 (Result)"):
-                        output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700)
+                        output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700, type="pil")
+                        save_result_btn = gr.Button("保存局部重绘图像至工作区")
                     with gr.TabItem("对比图 (Comparison)"):
                         comparison_img = gr.Image(label="拼接对比图 (Stitched Comparison)", interactive=False, height=700)
     
@@ -268,7 +287,7 @@ def create_qwen_inpainting_ui():
     
         inpaint_btn.click(fn=run_generation, inputs=all_inputs, outputs=all_outputs)
     
-        # Handlers for mask import/export
+        # Handlers for mask import/export and saving results
         upload_mask_btn.upload(
             fn=upload_masked_image,
             inputs=[upload_mask_btn],
@@ -276,24 +295,15 @@ def create_qwen_inpainting_ui():
             queue=False
         )
 
-        download_mask_btn.click(
-            fn=download_masked_image,
+        save_mask_btn.click(
+            fn=process_and_save_masked_image,
             inputs=[input_img],
-            outputs=[hidden_download_file]
-        ).then(
-            fn=None,
-            inputs=[hidden_download_file],
-            js="""
-            (file) => {
-                if (file && file.url) {
-                    const a = document.createElement('a');
-                    a.href = file.url;
-                    a.download = file.orig_name || 'masked_image.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }
-            }
-            """
+            outputs=[file_explorer]
+        )
+        
+        save_result_btn.click(
+            fn=lambda img: save_image_to_workspace(img, "qwen_inpainting", "inpainted"),
+            inputs=[output_img],
+            outputs=[file_explorer]
         )
     return input_img

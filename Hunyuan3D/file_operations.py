@@ -180,6 +180,16 @@ def dispatch_image(files, active_tab_name):
                 # For Gemini Chat, update the state and textbox, which are at index 3 and 4
                 outputs[3] = gr.update(value=json.dumps([full_path]))
                 outputs[4] = gr.update(value=f"@{Path(full_path).name}")
+            elif active_tab_name == "Qwen Inpainting":
+                from qwen_inpainting_logic import upload_masked_image
+                # Create a temporary file object for upload_masked_image
+                class TempFile:
+                    def __init__(self, name):
+                        self.name = name
+                
+                temp_file_obj = TempFile(full_path)
+                inpainting_data = upload_masked_image(temp_file_obj)
+                outputs[target_index] = inpainting_data
             elif active_tab_name == "Hunyuan3D":
                  # Hunyuan3D is the last tab, so its output is at index 5
                  outputs[5] = loaded_image

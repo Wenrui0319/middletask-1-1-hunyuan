@@ -130,8 +130,38 @@ async def run_generation(prompt, neg_prompt, input_img, sampler, scheduler, step
 
 
 
+import time
+
+def save_image_to_workspace(image):
+    if image is None:
+        gr.Warning("没有图像可保存。")
+        return gr.FileExplorer(key=str(time.time()))
+
+    try:
+        save_dir = "data/qwen_edit"
+        os.makedirs(save_dir, exist_ok=True)
+        
+        timestamp = int(time.time() * 1000)
+        filename = f"qwen_edit_{timestamp}.png"
+        
+        # 安全性检查
+        save_path = os.path.join(save_dir, filename)
+        if not os.path.abspath(save_path).startswith(os.path.abspath(save_dir)):
+            raise ValueError("检测到不安全的保存路径。")
+            
+        # image is a PIL Image, save it
+        image.save(save_path)
+        
+        gr.Info(f"图像已保存至 {save_path}")
+        return gr.FileExplorer(key=str(time.time()))
+        
+    except Exception as e:
+        gr.Error(f"保存图像失败: {e}")
+        return gr.FileExplorer(key=str(time.time()))
+
+
 # --- 3. Gradio UI Layout ---
-def create_qwen_edit_ui():
+def create_qwen_edit_ui(file_explorer):
     with gr.Blocks(theme=gr.themes.Base(), analytics_enabled=False, css=".info-icon {display: flex; align-items: center; justify-content: center;}") as demo:
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -171,7 +201,8 @@ def create_qwen_edit_ui():
                     with gr.TabItem("图像编辑区 (Image Edit Area)"):
                         input_img = gr.Image(label="上传或拖拽图像 (Upload or Drag Image)", interactive=True, height=700, type="numpy", elem_id="qwen_edit_input_image")
                     with gr.TabItem("生成结果 (Result)"):
-                        output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700)
+                        output_img = gr.Image(label="生成结果 (Generated Result)", interactive=False, height=700, type="pil")
+                        save_btn = gr.Button("保存至工作区")
                     with gr.TabItem("对比图 (Comparison)"):
                         comparison_img = gr.Image(label="拼接对比图 (Stitched Comparison)", interactive=False, height=700)
     
@@ -179,4 +210,6 @@ def create_qwen_edit_ui():
         all_outputs = [status_text, output_img, comparison_img, edit_btn]
     
         edit_btn.click(fn=run_generation, inputs=all_inputs, outputs=all_outputs)
+        save_btn.click(fn=save_image_to_workspace, inputs=[output_img], outputs=[file_explorer])
+
     return input_img

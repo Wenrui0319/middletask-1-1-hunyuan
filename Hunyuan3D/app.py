@@ -8,6 +8,7 @@ import uvicorn
 import time
 import gradio as gr
 from fastapi import FastAPI
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import trimesh
@@ -76,19 +77,19 @@ def build_app():
 
                 with gr.Tabs() as tabs_output:
                     with gr.Tab('SAM', visible=SAM_AVAILABLE, id="SAM"):
-                        sam_input_image = sam_logic.create_sam_ui(sam_logic.sam_predictor_global)
+                        sam_input_image = sam_logic.create_sam_ui(sam_logic.sam_predictor_global, file_explorer)
                     
                     with gr.Tab('Qwen Edit', id="Qwen Edit"):
-                        qwen_edit_input_image = qwen_edit_logic.create_qwen_edit_ui()
+                        qwen_edit_input_image = qwen_edit_logic.create_qwen_edit_ui(file_explorer)
 
                     with gr.Tab('Qwen Inpainting', id="Qwen Inpainting"):
-                        qwen_inpainting_input_image = qwen_inpainting_logic.create_qwen_inpainting_ui()
+                        qwen_inpainting_input_image = qwen_inpainting_logic.create_qwen_inpainting_ui(file_explorer)
 
                     with gr.Tab('Gemini Chat', id="Gemini Chat"):
                         gemini_uploaded_files_state, gemini_text_input = gemini_gradio_app.create_gemini_chat_ui()
                         
                     with gr.Tab('Hunyuan3D', id="Hunyuan3D"):
-                        hunyuan_input_image = hunyuan_logic.create_hunyuan_ui(hunyuan_logic.SUPPORTED_FORMATS, hunyuan_logic.HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2)
+                        hunyuan_input_image = hunyuan_logic.create_hunyuan_ui(hunyuan_logic.SUPPORTED_FORMATS, hunyuan_logic.HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2, file_explorer)
                         
 
 
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     parser.add_argument("--subfolder", type=str, default='hunyuan3d-dit-v2-0')
     parser.add_argument("--texgen_model_path", type=str, default='tencent/Hunyuan3D-2')
     parser.add_argument('--port', type=int, default=8080)
-    parser.add_argument('--host', type=str, default='127.0.0.1')
+    parser.add_argument('--host', type=str, default='0.0.0.0')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--mc_algo', type=str, default='mc')
     parser.add_argument('--cache-path', type=str, default='gradio_cache')
@@ -195,13 +196,16 @@ if __name__ == '__main__':
     parser.add_argument('--low_vram_mode', action='store_true')
     args = parser.parse_args()
 
-    # hunyuan_logic.initialize_hunyuan(args)
-    # sam_logic.initialize_sam(args)
+    hunyuan_logic.initialize_hunyuan(args)
+    sam_logic.initialize_sam(args)
     # For frontend testing
     hunyuan_logic.args = args
     hunyuan_logic.SAVE_DIR = temp_dir
 
     app = FastAPI()
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=["*.hfut1609.top", "local.hfut1609.top", "localhost", "127.0.0.1"]
+    )
     static_dir = Path(hunyuan_logic.SAVE_DIR).absolute()
     static_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static")
