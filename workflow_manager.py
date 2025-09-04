@@ -72,3 +72,72 @@ class WorkflowManager:
             if node['id'] == node_id:
                 return node
         return None
+
+    def to_mermaid(self):
+        """
+        将当前工作流数据转换为 Mermaid.js 格式的字符串，并包含用于渲染的 HTML。
+
+        Returns:
+            str: 包含 Mermaid 图表定义和 script 标签的完整 HTML 字符串。
+        """
+        if not self.nodes:
+            return "<div class='mermaid-container'><p>工作流为空，请上传一张图片以开始。</p></div>"
+
+        # 替换在 ID 中可能影响 Mermaid 语法的字符
+        def sanitize_id(node_id):
+            return node_id.replace('-', '_')
+
+        mermaid_string = "graph TD;\n"
+        
+        # 定义节点
+        for node in self.nodes:
+            s_id = sanitize_id(node['id'])
+            label = node['label'].replace('"', '') # 移除双引号
+            mermaid_string += f'    {s_id}["{label}"];\n'
+        
+        mermaid_string += "\n"
+
+        # 定义连接
+        for node in self.nodes:
+            if node['parent_id']:
+                s_parent_id = sanitize_id(node['parent_id'])
+                s_id = sanitize_id(node['id'])
+                mermaid_string += f'    {s_parent_id} --> {s_id};\n'
+
+        mermaid_string += "\n"
+
+        # 定义样式
+        mermaid_string += "    classDef leafNode fill:#3498db,color:#fff,stroke:#fff,stroke-width:2px;\n"
+        mermaid_string += "    classDef opNode fill:#2980b9,color:#fff,stroke:#fff,stroke-width:2px;\n\n"
+
+        # 应用样式和点击事件
+        for node in self.nodes:
+            s_id = sanitize_id(node['id'])
+            node_class = "leafNode" if node['type'] == 'leaf' else "opNode"
+            mermaid_string += f"    class {s_id} {node_class};\n"
+            # 注意：Mermaid 的 click 事件需要原始 ID
+            mermaid_string += f'    click {s_id} call handleNodeClick("{node["id"]}");\n'
+
+        # 完整 HTML 输出
+        # 我们需要一个唯一的 div ID 来确保 mermaid.js 每次都能重新渲染
+        container_id = f"mermaid-container-{uuid.uuid4().hex}"
+        
+        html_output = f"""
+        <div id="{container_id}" class="mermaid">
+            {mermaid_string}
+        </div>
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({{ startOnLoad: false }});
+            async function renderMermaid() {{
+                const element = document.getElementById('{container_id}');
+                if (element) {{
+                    const {{ svg }} = await mermaid.render('graph-svg', element.textContent);
+                    element.innerHTML = svg;
+                }}
+            }}
+            // 使用 setTimeout 确保 DOM 更新后再执行渲染
+            setTimeout(renderMermaid, 100);
+        </script>
+        """
+        return html_output
