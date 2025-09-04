@@ -15,96 +15,66 @@ with open("index.html", "r", encoding="utf-8") as f:
 # --- 后端逻辑函数 ---
 
 def create_root(image_temp_path):
-    """处理上传，创建根节点"""
+    """处理上传，创建根节点. 只返回新的树数据."""
     if not image_temp_path:
-        return None, None
-    
-    tree_data = manager.create_root_node(image_temp_path.name)
-    
-    # 返回要在 gr.HTML 中执行的JS代码
-    js_call = f"<script>renderWorkflowTree({json.dumps(tree_data)});</script>"
-    return html_template + js_call, tree_data
-
-def update_preview(selected_node_id_json):
-    """根据选中的节点ID更新预览图像"""
-    if not selected_node_id_json:
         return None
-    
-    # The input from gr.Textbox is a JSON string, e.g., '"node-id-string"'
-    # We need to parse it correctly. Sometimes it might just be the string.
-    try:
-        selected_node_id = json.loads(selected_node_id_json)
-    except (json.JSONDecodeError, TypeError):
-        selected_node_id = selected_node_id_json
+    tree_data = manager.create_root_node(image_temp_path.name)
+    return tree_data
 
+def update_preview(selected_node_id):
+    """根据选中的节点ID更新预览图像"""
     if not selected_node_id:
         return None
-        
+    
     node = manager.find_node(selected_node_id)
     if node and "file" in node:
         return node["file"]["path"]
     return None
 
-def save_new_node(parent_node_id_json, current_tab_name):
+def save_new_node(parent_node_id, current_tab_name, current_tree):
     """模拟保存一个操作结果，并创建新节点"""
-    try:
-        parent_node_id = json.loads(parent_node_id_json)
-    except (json.JSONDecodeError, TypeError):
-        parent_node_id = parent_node_id_json
+    # 同步管理器的状态
+    manager.tree = current_tree
 
     if not parent_node_id:
         gr.Warning("No parent node selected!")
-        # Return current state without changes
-        return html_template + f"<script>renderWorkflowTree({json.dumps(manager.get_tree())});</script>", manager.get_tree()
+        return current_tree
 
-    # --- 模拟一个编辑操作 ---
-    # 1. 找到父节点的图像
     parent_node = manager.find_node(parent_node_id)
     if not parent_node:
         gr.Warning("Parent node not found!")
-        return html_template + f"<script>renderWorkflowTree({json.dumps(manager.get_tree())});</script>", manager.get_tree()
+        return current_tree
     
-    # 2. 假设我们对图像做了一个操作，并生成了一个新图像
-    # 在真实应用中，这里会调用你的图像处理函数
-    # 这里我们只是复制父节点的图像来模拟
     from PIL import Image
-    
     img = Image.open(parent_node["file"]["path"])
-    # 模拟处理：比如转为灰度
     processed_img = img.convert("L")
     
-    # 3. 保存新图像到临时位置
     temp_output_path = os.path.join(manager.workspace_dir, f"temp_{time.time()}.png")
     processed_img.save(temp_output_path)
     
-    # 4. 定义操作属性
     operation_details = {
-        "name": current_tab_name, # e.g., "Inpainting", "Grayscale"
+        "name": current_tab_name,
         "params": {"detail": "Converted to grayscale"}
     }
     
-    # 5. 在工作流中添加新节点
     tree_data = manager.add_child_node(parent_node_id, temp_output_path, operation_details)
-    
-    js_call = f"<script>renderWorkflowTree({json.dumps(tree_data)});</script>"
-    return html_template + js_call, tree_data
+    return tree_data
 
-
-def delete_node(node_id_to_delete_json):
+def delete_node(node_id_to_delete, current_tree):
     """删除节点及其子树"""
-    try:
-        node_id_to_delete = json.loads(node_id_to_delete_json)
-    except (json.JSONDecodeError, TypeError):
-        node_id_to_delete = node_id_to_delete_json
+    # 同步管理器的状态
+    manager.tree = current_tree
 
     if not node_id_to_delete:
         gr.Warning("No node selected for deletion!")
-        return html_template, manager.get_tree()
+        return current_tree
 
     tree_data = manager.delete_subtree(node_id_to_delete)
-    
-    js_call = f"<script>renderWorkflowTree({json.dumps(tree_data)});</script>"
-    return html_template + js_call, tree_data
+    return tree_data
+
+def js_render_trigger(tree_data):
+    """一个简单的透传函数，其输出将作为参数传递给JS函数"""
+    return tree_data
 
 # --- Gradio UI 构建 ---
 
@@ -124,8 +94,8 @@ with gr.Blocks(theme=gr.themes.Soft(), css="static/css/style.css") as demo:
         # 左侧：工作流和预览
         with gr.Column(scale=1):
             gr.Markdown("## 工作流历史")
-            # gr.HTML 用于渲染D3树状图
-            workflow_html = gr.HTML(html_template)
+            # gr.HTML 现在只加载一次静态模板
+            workflow_html = gr.HTML(html_template, visible=True)
             
             gr.Markdown("## 节点预览")
             preview_image = gr.Image(label="选中节点图像预览", interactive=False)
@@ -151,43 +121,50 @@ with gr.Blocks(theme=gr.themes.Soft(), css="static/css/style.css") as demo:
         delete_button = gr.Button("删除选中节点")
 
     # --- 事件绑定 ---
+
+    # 核心渲染触发器：当JSON状态改变时，调用JS函数`renderWorkflowTree`
+    workflow_json_state.change(
+        fn=js_render_trigger,
+        inputs=workflow_json_state,
+        outputs=workflow_json_state, # 必须有一个输出，即使是透传
+        _js="renderWorkflowTree"
+    )
     
-    # 1. 上传图像 -> 创建根节点，更新HTML和JSON状态
+    # 1. 上传图像 -> 只更新JSON状态，这将自动触发上面的.change()事件
     upload_button.upload(
         fn=create_root,
         inputs=[upload_button],
-        outputs=[workflow_html, workflow_json_state]
+        outputs=[workflow_json_state]
     )
 
-    # 2. JS中点击节点 -> 更新selected_node_id_state -> 触发preview_trigger_button
-    #    -> 更新预览图
-    #    (这是一个链式反应: JS -> Textbox -> Button.click -> Python fn)
+    # 2. JS中点击节点 -> 触发预览图更新 (这部分逻辑不变)
     preview_trigger_button.click(
         fn=update_preview,
         inputs=[selected_node_id_state],
         outputs=[preview_image]
     )
     
-    # 3. 点击"保存至工作区"按钮 -> 创建新节点
+    # 3. 点击"保存至工作区"按钮 -> 更新JSON状态
     def create_save_handler(tab_name):
-        return lambda node_id: save_new_node(node_id, tab_name)
+        # 现在需要传入当前树的状态
+        return lambda node_id, tree: save_new_node(node_id, tab_name, tree)
 
     save_button_a.click(
         fn=create_save_handler("Grayscale"),
-        inputs=[selected_node_id_state],
-        outputs=[workflow_html, workflow_json_state]
+        inputs=[selected_node_id_state, workflow_json_state],
+        outputs=[workflow_json_state]
     )
     save_button_b.click(
         fn=create_save_handler("Inpainting"),
-        inputs=[selected_node_id_state],
-        outputs=[workflow_html, workflow_json_state]
+        inputs=[selected_node_id_state, workflow_json_state],
+        outputs=[workflow_json_state]
     )
 
-    # 4. 点击"删除"按钮 -> 删除节点
+    # 4. 点击"删除"按钮 -> 更新JSON状态
     delete_button.click(
         fn=delete_node,
-        inputs=[selected_node_id_state],
-        outputs=[workflow_html, workflow_json_state]
+        inputs=[selected_node_id_state, workflow_json_state],
+        outputs=[workflow_json_state]
     )
 
 if __name__ == "__main__":
