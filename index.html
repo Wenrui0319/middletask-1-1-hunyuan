@@ -1,426 +1,118 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ComfyUI 图像编辑器</title>
+    <title>工作流树</title>
     <style>
-        :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --background-color: #f8f9fa;
-            --surface-color: #ffffff;
-            --text-color: #212529;
-            --border-color: #dee2e6;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-
-        body {
-            font-family: var(--font-family);
-            background-color: var(--background-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 2rem;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-
-        .container {
+        /* 容器样式 */
+        #workflow-container {
             width: 100%;
-            max-width: 1200px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            background-color: var(--surface-color);
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        @media (max-width: 992px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        h1, h2 {
-            margin: 0;
-            font-weight: 600;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        label {
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        textarea {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1rem;
-            box-sizing: border-box;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        textarea:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        .seed-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        button {
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            font-weight: 500;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-        .btn-primary:disabled {
-            background-color: var(--secondary-color);
-            cursor: not-allowed;
-        }
-        .btn-primary:active {
-            transform: scale(0.98);
-        }
-
-        .btn-secondary {
-            background-color: var(--secondary-color);
-            color: white;
-        }
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-
-        .output-panel .image-container {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            background-color: #e9ecef;
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            height: 400px;
+            border: 1px solid #e0e0e0;
             overflow: hidden;
-        }
-        
-        .output-panel .image-container p {
-            color: var(--secondary-color);
+            background-color: #f9f9f9;
         }
 
-        .output-panel img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        
-        .progress-bar {
+        /* SVG画布样式 */
+        .workflow-svg {
             width: 100%;
-            height: 1.5rem;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-bar-inner {
             height: 100%;
-            width: 0%;
-            background-color: var(--success-color);
-            transition: width 0.3s ease-in-out;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 0.8rem;
-        }
-        
-        #status {
-            text-align: center;
-            font-weight: 500;
-            min-height: 1.2rem;
         }
 
+        /* 节点通用样式 */
+        .node circle {
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+
+        .node text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            fill: white;
+            text-anchor: middle;
+            pointer-events: none; /* 文字不接受鼠标事件 */
+        }
+
+        /* 节点样式：蓝色背景，白色边框 */
+        .node .node-background {
+            fill: #3b82f6; /* 蓝色背景 */
+            stroke: white; /* 白色边框 */
+        }
+        
+        /* 选中节点的特殊样式 */
+        .node.selected .node-background {
+            stroke: #f59e0b; /* 醒目的橙色边框表示选中 */
+            stroke-width: 4px;
+        }
+
+        /* 连线样式：白色手绘风格 */
+        .link {
+            fill: none;
+            stroke: white;
+            stroke-width: 2px;
+            /* 应用SVG滤镜以实现手绘效果 */
+            filter: url(#hand-drawn-filter);
+        }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <div class="panel control-panel">
-            <h1>控制面板</h1>
-            
-            <div class="form-group">
-                <label for="server-address">ComfyUI 服务器地址</label>
-                <input type="text" id="server-address" value="http://127.0.0.1:8188/">
-            </div>
-
-            <div class="form-group">
-                <label for="image-upload">上传图片</label>
-                <input type="file" id="image-upload" accept="image/*">
-            </div>
-
-            <div class="form-group">
-                <label for="positive-prompt">正面提示词 (编辑指令)</label>
-                <textarea id="positive-prompt">A girl in a beautiful dress</textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="negative-prompt">负面提示词</label>
-                <textarea id="negative-prompt">text, watermark, bad quality</textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="seed">种子</label>
-                <div class="seed-group">
-                    <input type="number" id="seed" value="0">
-                    <button id="random-seed" class="btn-secondary">随机</button>
-                </div>
-            </div>
-
-            <button id="generate-btn" class="btn-primary">开始生成</button>
-        </div>
-
-        <div class="panel output-panel">
-            <h2>预览与结果</h2>
-            <div class="image-container" id="preview-container">
-                <p>请先上传图片</p>
-            </div>
-            <h2>生成结果</h2>
-            <div class="image-container" id="result-container">
-                <p>等待生成结果...</p>
-            </div>
-            <div id="status">准备就绪</div>
-            <div class="progress-bar">
-                <div id="progress-bar-inner" class="progress-bar-inner">0%</div>
-            </div>
-        </div>
+    <div id="workflow-container">
+        <svg class="workflow-svg">
+            <!-- SVG滤镜，用于模拟手绘效果 -->
+            <filter id="hand-drawn-filter" x="-50%" y="-50%" width="200%" height="200%">
+                <feTurbulence baseFrequency="0.03" numOctaves="2" result="turbulence"/>
+                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+            <g class="workflow-links"></g>
+            <g class="workflow-nodes"></g>
+        </svg>
     </div>
 
+    <!-- 引入D3.js库 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- 
+      Gradio会通过某种方式将数据注入到这个window对象上，
+      或者我们可以通过隐藏的组件和JS来轮询数据。
+      这里我们定义一个函数，Gradio后端将通过JS调用它来传递数据。
+    -->
     <script>
-        // API JSON 工作流模板
-        const workflowApiTemplate = {
-          "3": { "inputs": { "seed": 976480016588017, "steps": 20, "cfg": 2.5, "sampler_name": "euler", "scheduler": "simple", "denoise": 1, "model": ["75", 0], "positive": ["76", 0], "negative": ["77", 0], "latent_image": ["88", 0] }, "class_type": "KSampler" },
-          "8": { "inputs": { "samples": ["3", 0], "vae": ["39", 0] }, "class_type": "VAEDecode" },
-          "37": { "inputs": { "unet_name": "qwen_image_edit_fp8_e4m3fn.safetensors", "weight_dtype": "default" }, "class_type": "UNETLoader" },
-          "38": { "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" }, "class_type": "CLIPLoader" },
-          "39": { "inputs": { "vae_name": "qwen_image_vae.safetensors" }, "class_type": "VAELoader" },
-          "60": { "inputs": { "filename_prefix": "ComfyUI_Web", "images": ["8", 0] }, "class_type": "SaveImage" },
-          "66": { "inputs": { "shift": 3, "model": ["37", 0] }, "class_type": "ModelSamplingAuraFlow" },
-          "75": { "inputs": { "strength": 1, "model": ["66", 0] }, "class_type": "CFGNorm" },
-          "76": { "inputs": { "prompt": "A beautiful girl", "clip": ["38", 0], "vae": ["39", 0], "image": ["93", 0] }, "class_type": "TextEncodeQwenImageEdit" },
-          "77": { "inputs": { "prompt": "", "clip": ["38", 0], "vae": ["39", 0], "image": ["93", 0] }, "class_type": "TextEncodeQwenImageEdit" },
-          "78": { "inputs": { "image": "example.png" }, "class_type": "LoadImage" },
-          "88": { "inputs": { "pixels": ["93", 0], "vae": ["39", 0] }, "class_type": "VAEEncode" },
-          "93": { "inputs": { "upscale_method": "lanczos", "megapixels": 1, "image": ["78", 0] }, "class_type": "ImageScaleToTotalPixels" }
-        };
-
-        const serverAddressInput = document.getElementById('server-address');
-        const imageUploadInput = document.getElementById('image-upload');
-        const positivePromptInput = document.getElementById('positive-prompt');
-        const negativePromptInput = document.getElementById('negative-prompt');
-        const seedInput = document.getElementById('seed');
-        const randomSeedBtn = document.getElementById('random-seed');
-        const generateBtn = document.getElementById('generate-btn');
-        
-        const previewContainer = document.getElementById('preview-container');
-        const resultContainer = document.getElementById('result-container');
-        const statusDiv = document.getElementById('status');
-        const progressBarInner = document.getElementById('progress-bar-inner');
-
-        let clientId = crypto.randomUUID();
-
-        // --- Event Listeners ---
-        randomSeedBtn.addEventListener('click', () => {
-            seedInput.value = Math.floor(Math.random() * 1000000000000000);
-        });
-        
-        imageUploadInput.addEventListener('change', () => {
-            const file = imageUploadInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    previewContainer.innerHTML = `<img src="${e.target.result}" alt="Image Preview">`;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-
-        generateBtn.addEventListener('click', handleGeneration);
-
-        // --- Core Functions ---
-        async function handleGeneration() {
-            const file = imageUploadInput.files[0];
-            if (!file) {
-                alert('请先上传一张图片！');
+        // 这个全局函数将由Gradio后端调用，以传递新的树数据
+        function renderWorkflowTree(treeData) {
+            if (!treeData) {
+                console.warn("No tree data provided to renderWorkflowTree.");
                 return;
             }
-            
-            setLoadingState(true, '正在上传图片...');
-            
-            try {
-                // 1. Upload Image
-                const uploadedImage = await uploadImage(file);
-                if (!uploadedImage || !uploadedImage.name) {
-                    throw new Error('图片上传失败，未收到有效的返回信息。');
-                }
-                
-                // 2. Prepare Workflow
-                const workflow = JSON.parse(JSON.stringify(workflowApiTemplate));
-                workflow["78"].inputs.image = uploadedImage.name;
-                workflow["76"].inputs.prompt = positivePromptInput.value;
-                workflow["77"].inputs.prompt = negativePromptInput.value;
-                workflow["3"].inputs.seed = parseInt(seedInput.value, 10);
-                
-                // 3. Queue Prompt
-                const data = await queuePrompt(workflow);
-                const promptId = data.prompt_id;
-                
-                // 4. WebSocket connection
-                setupWebSocket(promptId);
+            // 调用我们自定义的渲染脚本
+            window.WorkflowRenderer.render(treeData);
+        }
 
-            } catch (error) {
-                console.error("生成流程出错:", error);
-                setLoadingState(false, `错误: ${error.message}`);
+        // 这个函数用于模拟点击Gradio的隐藏按钮，将选中的节点ID传给后端
+        function selectNodeInGradio(nodeId, imagePath) {
+            // 1. 找到存储选中节点ID的隐藏输入框
+            // Gradio通常会给组件一个CSS类，如`gradio-textbox`，并可以通过其父元素的ID来定位
+            // 假设我们的隐藏输入框在ID为`#selected-node-id-input`的组件内
+            const nodeIdInput = document.querySelector("#selected-node-id-input textarea");
+            if (nodeIdInput) {
+                nodeIdInput.value = nodeId;
+                // 触发input事件，让Gradio知道值已更改
+                nodeIdInput.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                console.error("Could not find the hidden node ID input for Gradio.");
+            }
+
+            // 2. 找到用于预览的隐藏按钮并点击它
+            const previewButton = document.querySelector("#preview-button");
+            if (previewButton) {
+                // 如果需要传递额外参数（如图像路径），Gradio的JS API可能更复杂
+                // 简单起见，我们假设后端仅需要nodeId
+                previewButton.click();
+            } else {
+                console.error("Could not find the hidden preview button for Gradio.");
             }
         }
-
-        function setLoadingState(isLoading, message = '') {
-            generateBtn.disabled = isLoading;
-            statusDiv.textContent = message;
-            if (!isLoading) {
-                progressBarInner.style.width = '0%';
-                progressBarInner.textContent = '0%';
-            }
-        }
-        
-        function setupWebSocket(promptId) {
-            const serverAddress = serverAddressInput.value.replace(/^(http|https)/, 'ws');
-            const ws = new WebSocket(`${serverAddress}ws?clientId=${clientId}`);
-
-            ws.onopen = () => {
-                console.log("WebSocket 连接已建立");
-            };
-
-            ws.onmessage = async (event) => {
-                const msg = JSON.parse(event.data);
-                
-                if (msg.type === 'status') {
-                    const { queue_remaining } = msg.data.status.exec_info;
-                    statusDiv.textContent = queue_remaining > 0 ? `排队中，前方还有 ${queue_remaining} 个任务` : '准备执行...';
-                } else if (msg.type === 'execution_start') {
-                    statusDiv.textContent = '开始执行...';
-                } else if (msg.type === 'progress') {
-                    const { value, max } = msg.data;
-                    const percentage = Math.round((value / max) * 100);
-                    progressBarInner.style.width = `${percentage}%`;
-                    progressBarInner.textContent = `${percentage}%`;
-                    statusDiv.textContent = `正在处理节点... ${percentage}%`;
-                } else if (msg.type === 'executed' && msg.data.prompt_id === promptId) {
-                     statusDiv.textContent = '执行完毕，正在获取结果...';
-                     const history = await getHistory(promptId);
-                     const output = history[promptId].outputs['60'].images[0];
-                     const imageUrl = `${serverAddressInput.value}view?filename=${output.filename}&subfolder=${output.subfolder}&type=${output.type}`;
-                     resultContainer.innerHTML = `<img src="${imageUrl}" alt="Generated Image">`;
-                     setLoadingState(false, '生成成功！');
-                     ws.close();
-                } else if (msg.type === 'execution_error') {
-                    console.error("执行节点时出错:", msg.data);
-                    setLoadingState(false, `执行错误: ${msg.data.exception_message}`);
-                    ws.close();
-                }
-            };
-            
-            ws.onclose = () => {
-                console.log("WebSocket 连接已关闭");
-            };
-            
-            ws.onerror = (err) => {
-                console.error("WebSocket 错误: ", err);
-                setLoadingState(false, 'WebSocket 连接错误');
-            };
-        }
-
-
-        // --- API Calls ---
-        async function apiFetch(endpoint, options = {}) {
-            const response = await fetch(`${serverAddressInput.value}${endpoint}`, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        }
-
-        async function uploadImage(file) {
-            const formData = new FormData();
-            formData.append('image', file);
-            formData.append('overwrite', 'true'); // Overwrite if exists
-            
-            const response = await fetch(`${serverAddressInput.value}upload/image`, {
-                method: 'POST',
-                body: formData
-            });
-            if (!response.ok) {
-                throw new Error(`图片上传失败: ${response.statusText}`);
-            }
-            return response.json();
-        }
-        
-        function queuePrompt(workflow) {
-            const body = JSON.stringify({
-                prompt: workflow,
-                client_id: clientId,
-            });
-            return apiFetch('prompt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: body,
-            });
-        }
-
-        function getHistory(promptId) {
-            return apiFetch(`history/${promptId}`);
-        }
-
     </script>
+    <!-- 引入我们自己的渲染逻辑 -->
+    <script src="/file=static/js/render_tree.js"></script>
 </body>
 </html>
