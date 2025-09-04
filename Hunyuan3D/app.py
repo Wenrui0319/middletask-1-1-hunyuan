@@ -132,8 +132,10 @@ if __name__ == '__main__':
     if args.sam_device is None:
         args.sam_device = args.device
 
-    hunyuan_logic.initialize_hunyuan(args)
+    project_root = os.path.dirname(os.path.abspath(__file__))
     
+    hunyuan_logic.initialize_hunyuan(args, project_root)
+
     from argparse import Namespace
     sam_args = Namespace(device=args.sam_device)
     sam_logic.initialize_sam(sam_args)
@@ -142,10 +144,22 @@ if __name__ == '__main__':
     hunyuan_logic.SAVE_DIR = temp_dir
 
     app = FastAPI()
+
+    static_dir = Path(hunyuan_logic.SAVE_DIR).absolute()
+    static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=static_dir, html=False), name="static") # html=False is safer
+
+    env_maps_src = os.path.join(project_root, 'assets', 'env_maps')
+    env_maps_dest = os.path.join(static_dir, 'env_maps')
+    if os.path.exists(env_maps_src):
+        shutil.copytree(env_maps_src, env_maps_dest, dirs_exist_ok=True)
     
     demo = build_app(args)
     app = gr.mount_gradio_app(app, demo, path="/")
     
+    if args.low_vram_mode:
+        torch.cuda.empty_cache()
+
     print(f"\n>>> Gradio 服务即将启动！请在浏览器中打开 http://{args.host}:{args.port}")
     print(f"    - 主模型设备: {args.device}")
     print(f"    - SAM 模型设备: {args.sam_device}")

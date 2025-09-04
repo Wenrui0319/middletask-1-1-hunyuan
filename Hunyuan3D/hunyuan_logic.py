@@ -6,15 +6,16 @@ import shutil
 import time
 from glob import glob
 from pathlib import Path
-import uuid  # <-- FIX 1: Import uuid
+import uuid
 import gradio as gr
 import torch
 import trimesh
 from hy3dgen.shapegen.utils import logger
 from hy3dgen.shapegen.pipelines import export_to_trimesh
+
 args = None
 SAVE_DIR = None
-CURRENT_DIR = None
+PROJECT_ROOT = None # Will be set by app.py
 MV_MODE = False
 TURBO_MODE = False
 HTML_HEIGHT = 650
@@ -34,8 +35,9 @@ HAS_T2I = False
 SUPPORTED_FORMATS = ['glb', 'obj', 'ply', 'stl']
 HTML_OUTPUT_PLACEHOLDER = ""
 
-def initialize_hunyuan(cli_args):
-    global HTML_OUTPUT_PLACEHOLDER
+def initialize_hunyuan(cli_args, project_root):
+    global HTML_OUTPUT_PLACEHOLDER, PROJECT_ROOT
+    PROJECT_ROOT = project_root
     initialize_hunyuan_models(cli_args)
     HTML_OUTPUT_PLACEHOLDER = f"""
     <div style='height: {HTML_HEIGHT}px; width: 100%; border-radius: 8px; border-color: #e5e7eb; border-style: solid; border-width: 1px; display: flex; justify-content: center; align-items: center;'>
@@ -48,7 +50,7 @@ def initialize_hunyuan(cli_args):
 
 def initialize_hunyuan_models(cli_args):
     """Loads all Hunyuan models and sets up global variables for this module."""
-    global args, SAVE_DIR, CURRENT_DIR, MV_MODE, TURBO_MODE, HTML_HEIGHT
+    global args, SAVE_DIR, MV_MODE, TURBO_MODE, HTML_HEIGHT
     global texgen_worker, t2i_worker, rmbg_worker, i23d_worker
     global floater_remove_worker, degenerate_face_remove_worker, face_reduce_worker
     global HAS_TEXTUREGEN, HAS_T2I
@@ -56,7 +58,6 @@ def initialize_hunyuan_models(cli_args):
     args = cli_args
     SAVE_DIR = args.cache_path
     os.makedirs(SAVE_DIR, exist_ok=True)
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     MV_MODE = 'mv' in args.model_path
     TURBO_MODE = 'turbo' in args.subfolder
     HTML_HEIGHT = 690 if MV_MODE else 650
@@ -92,44 +93,18 @@ def initialize_hunyuan_models(cli_args):
     degenerate_face_remove_worker = DegenerateFaceRemover()
     face_reduce_worker = FaceReducer()
 
-def get_example_img_list():
-    print('Loading example img list ...')
-    return sorted(glob('./assets/example_images/**/*.png', recursive=True))
-
-def get_example_txt_list():
-    print('Loading example txt list ...')
-    txt_list = list()
-    for line in open('./assets/example_prompts.txt', encoding='utf-8'):
-        txt_list.append(line.strip())
-    return txt_list
-
-def get_example_mv_list():
-    print('Loading example mv list ...')
-    mv_list = list()
-    root = './assets/example_mv_images'
-    for mv_dir in os.listdir(root):
-        view_list = []
-        for view in ['front', 'back', 'left', 'right']:
-            path = os.path.join(root, mv_dir, f'{view}.png')
-            if os.path.exists(path):
-                view_list.append(path)
-            else:
-                view_list.append(None)
-        mv_list.append(view_list)
-    return mv_list
-
 def gen_save_folder(max_size=200, file_path=None):
-    if file_path == None:
+    if file_path is None:
         file_path = SAVE_DIR
-    else:
-        pass
+    
     os.makedirs(file_path, exist_ok=True)
     dirs = [f for f in Path(file_path).iterdir() if f.is_dir()]
     if len(dirs) >= max_size:
         oldest_dir = min(dirs, key=lambda x: x.stat().st_ctime)
         shutil.rmtree(oldest_dir)
         print(f"Removed the oldest folder: {oldest_dir}")
-    new_folder = os.path.join(file_path, str(uuid.uuid4()))
+    
+    new_folder = os.path.join(file_path, f"{int(time.time())}_{uuid.uuid4().hex[:6]}")
     os.makedirs(new_folder, exist_ok=True)
     print(f"Created new folder: {new_folder}")
     return new_folder
@@ -139,10 +114,13 @@ def export_mesh(mesh, save_folder, textured=False, type='glb'):
         path = os.path.join(save_folder, f'textured_mesh.{type}')
     else:
         path = os.path.join(save_folder, f'white_mesh.{type}')
-    if type not in ['glb', 'obj']:
-        mesh.export(path)
-    else:
-        mesh.export(path, include_normals=textured)
+    
+    if textured and type not in ['glb', 'obj']:
+        print(f"Warning: Textured export as '{type}' may not work as expected. Converting to 'glb'.")
+        type = 'glb'
+        path = os.path.join(save_folder, f'textured_mesh.{type}')
+
+    mesh.export(path)
     return path
 
 def randomize_seed_fn(seed: int, randomize_seed: bool) -> int:
@@ -153,23 +131,36 @@ def randomize_seed_fn(seed: int, randomize_seed: bool) -> int:
 def build_model_viewer_html(save_folder, height=660, width=790, textured=False):
     if textured:
         related_path = f"./textured_mesh.glb"
-        template_name = './assets/modelviewer-textured-template.html'
-        output_html_path = os.path.join(save_folder, f'textured_mesh.html')
+        template_name = 'assets/modelviewer-textured-template.html'
+        output_html_path = os.path.join(save_folder, 'textured_mesh.html')
     else:
         related_path = f"./white_mesh.glb"
-        template_name = './assets/modelviewer-template.html'
-        output_html_path = os.path.join(save_folder, f'white_mesh.html')
+        template_name = 'assets/modelviewer-template.html'
+        output_html_path = os.path.join(save_folder, 'white_mesh.html')
+
     offset = 50 if textured else 10
-    with open(os.path.join(CURRENT_DIR, template_name), 'r', encoding='utf-8') as f:
+    
+    if PROJECT_ROOT is None:
+        raise ValueError("Project root not initialized. Please call initialize_hunyuan with project_root.")
+    template_file_path = os.path.join(PROJECT_ROOT, template_name)
+
+    if not os.path.exists(template_file_path):
+        raise FileNotFoundError(f"无法在指定位置找到模板文件: {template_file_path}")
+
+    with open(template_file_path, 'r', encoding='utf-8') as f:
         template_html = f.read()
+    
     with open(output_html_path, 'w', encoding='utf-8') as f:
         template_html = template_html.replace('#height#', f'{height - offset}')
         template_html = template_html.replace('#width#', f'{width}')
-        template_html = template_html.replace('#src#', f'{related_path}/')
+        template_html = template_html.replace('#src#', f'{related_path}')
         f.write(template_html)
+        
     rel_path = os.path.relpath(output_html_path, SAVE_DIR)
+    rel_path = rel_path.replace(os.sep, '/')
+    
     iframe_tag = f'<iframe src="/static/{rel_path}" height="{height}" width="100%" frameborder="0"></iframe>'
-    print(f'Find html file {output_html_path}, {os.path.exists(output_html_path)}, relative HTML path is /static/{rel_path}')
+    print(f'Generated HTML file at {output_html_path}, relative path for iframe: /static/{rel_path}')
     return f"<div style='height: {height}; width: 100%;'>{iframe_tag}</div>"
 
 def _gen_shape(
@@ -199,10 +190,9 @@ def _gen_shape(
     time_meta = {}
     if image is None:
         start_time = time.time()
-        try:
-            image = t2i_worker(caption)
-        except Exception as e:
-            raise gr.Error(f"Text to 3D is disable. Please enable it by `python gradio_app.py --enable_t23d`.")
+        if not HAS_T2I or t2i_worker is None:
+            raise gr.Error("Text-to-Image is disabled. Please enable it by running with --enable_t23d.")
+        image = t2i_worker(caption)
         time_meta['text2image'] = time.time() - start_time
     if MV_MODE:
         start_time = time.time()
@@ -217,7 +207,7 @@ def _gen_shape(
             image = rmbg_worker(image.convert('RGB'))
             time_meta['remove background'] = time.time() - start_time
     start_time = time.time()
-    generator = torch.Generator()
+    generator = torch.Generator(device=i23d_worker.device)
     generator = generator.manual_seed(int(seed))
     outputs = i23d_worker(
         image=image, num_inference_steps=steps, guidance_scale=guidance_scale, generator=generator,
@@ -318,7 +308,7 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
                         file_export = gr.DownloadButton(label="Download", variant='primary', interactive=False, min_width=100)
             
         with gr.Column(scale=2):
-            with gr.Tabs():
+            with gr.Tabs() as output_mesh_tabs:
                 with gr.Tab('Generated Mesh', id='gen_mesh_panel'):
                     html_gen_mesh = gr.HTML(HTML_OUTPUT_PLACEHOLDER, label='Output')
                 with gr.Tab('Exporting Mesh', id='export_mesh_panel'):
@@ -353,39 +343,46 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
         def on_export_click(file_out_val, file_out2_val, file_type_val, reduce_face_val, export_texture_val, target_face_num_val, save_to_path=None):
             if file_out_val is None:
                 raise gr.Error('Please generate a mesh first.')
-            if export_texture_val:
-                mesh = trimesh.load(file_out2_val.name)
-                save_folder = gen_save_folder(file_path=save_to_path)
-                path = export_mesh(mesh, save_folder, textured=True, type=file_type_val)
-                _ = export_mesh(mesh, gen_save_folder(file_path=save_to_path), textured=True)
-                model_viewer_html = build_model_viewer_html(save_folder, height=HTML_HEIGHT, width=HTML_WIDTH, textured=True)
+            
+            if export_texture_val and file_out2_val:
+                mesh_path = file_out2_val.name
+                is_textured = True
             else:
-                mesh = trimesh.load(file_out_val.name)
-                mesh = floater_remove_worker(mesh)
-                mesh = degenerate_face_remove_worker(mesh)
-                if reduce_face_val:
-                    mesh = face_reduce_worker(mesh, target_face_num_val)
-                save_folder = gen_save_folder(file_path=save_to_path)
-                path = export_mesh(mesh, save_folder, textured=False, type=file_type_val)
-                _ = export_mesh(mesh, gen_save_folder(file_path=save_to_path), textured=False)
-                model_viewer_html = build_model_viewer_html(save_folder, height=HTML_HEIGHT, width=HTML_WIDTH, textured=False)
-            return model_viewer_html, gr.update(value=path, interactive=True), gr.FileExplorer(key=str(time.time()))
+                mesh_path = file_out_val.name
+                is_textured = False
+
+            mesh = trimesh.load(mesh_path)
+            
+            mesh = floater_remove_worker(mesh)
+            mesh = degenerate_face_remove_worker(mesh)
+            if reduce_face_val:
+                mesh = face_reduce_worker(mesh, target_face_num_val)
+
+            save_folder = gen_save_folder(file_path=save_to_path)
+            path = export_mesh(mesh, save_folder, textured=is_textured, type=file_type_val)
+            model_viewer_html = build_model_viewer_html(save_folder, height=HTML_HEIGHT, width=HTML_WIDTH, textured=is_textured)
+            
+            file_explorer_update = gr.FileExplorer(key=str(time.time())) if save_to_path else gr.update()
+            return model_viewer_html, gr.update(value=path, interactive=True), file_explorer_update
 
         confirm_export.click(
-            lambda: gr.update(selected=tabs_output.get_tabs()[1]),
-            outputs=None
+            fn=lambda: gr.update(selected='export_mesh_panel'),
+            inputs=None,
+            outputs=[output_mesh_tabs]
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num],
-            outputs=[html_export_mesh, file_export]
+            outputs=[html_export_mesh, file_export, file_explorer]
         )
 
         save_3d_btn.click(
-            fn=lambda: gr.update(selected=1),
-            outputs=[tabs_output]
+            fn=lambda: gr.update(selected='export_mesh_panel'),
+            inputs=None,
+            outputs=[output_mesh_tabs]
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num, gr.State("data/hunyuan")],
             outputs=[html_export_mesh, file_export, file_explorer]
         )
+        
     return geneting_image
