@@ -120,3 +120,6 @@ Positive Prompt:
 
 Negative Prompt:
 (lace, patterns, logos, text, embroidery, transparent:1.5), (shiny, silk, satin, plastic, leather:1.4), (deformed, distorted, disfigured:1.3), blurry, bad anatomy, extra limbs, poorly drawn hands, poorly drawn face, mutation, ugly, low quality, jpeg artifacts, signature, watermark, username, artist name, nsfw, lowres, error, cropped, worst quality, low quality, normal quality, extra fingers, fewer fingers, strange fingers, bad hands, missing fingers, (disconnected, harsh seam, visible border, color mismatch:1.5).
+
+python app.py --sam_device cuda:2 --device cuda1
+comfy -- --
