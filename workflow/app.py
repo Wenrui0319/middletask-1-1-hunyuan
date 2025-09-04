@@ -139,41 +139,28 @@ with gr.Blocks(js=js_script, css=css_style) as demo:
         outputs=None # 此操作不直接更新任何组件
     )
 
-    # 添加一个模拟的“保存”按钮来测试 add_child_node
-    mock_save_button = gr.Button("模拟保存(添加子节点)")
+    # 绑定“删除”按钮的事件
+    def on_delete_click(current_node_id):
+        if not current_node_id:
+            gr.Warning("请先在工作流中选择一个要删除的节点！")
+            return wm.to_mermaid(), None # 返回更新，但不清空预览
 
-    def on_mock_save(current_node_id, current_image):
-        if not current_node_id or current_image is None:
-            # 如果没有选中节点或没有图片，则不执行任何操作
-            gr.Warning("请先在工作流中选择一个父节点！")
-            return wm.to_mermaid()
-
-        # 模拟一次编辑操作
-        operation_name = "Mock Edit"
-        params = {"mock_param": "value123"}
-        
-        # current_image 是一个 numpy 数组，需要先保存为临时文件
-        from PIL import Image
-        import time
-        temp_img_path = f"workspace/temp_{time.time()}.png"
-        img = Image.fromarray(current_image)
-        img.save(temp_img_path)
-
-        # 添加子节点
-        wm.add_child_node(current_node_id, operation_name, temp_img_path, params)
+        wm.delete_subtree(current_node_id)
         wm.save()
         
-        # 清理临时文件
-        os.remove(temp_img_path)
+        gr.Info(f"已删除节点 {current_node_id[:8]}... 及其所有后续节点。")
+        
+        # 刷新树，并清空预览和选中ID
+        return wm.to_mermaid(), None, ""
 
-        # 刷新工作流树
-        return wm.to_mermaid()
-
-    mock_save_button.click(
-        fn=on_mock_save,
-        inputs=[selected_node_id, preview_image],
-        outputs=workflow_tree_html
+    delete_button.click(
+        fn=on_delete_click,
+        inputs=[selected_node_id],
+        outputs=[workflow_tree_html, preview_image, selected_node_id]
     )
+
+    # 备注：实际的“保存”按钮应位于各个编辑子页面中。
+    # 此处不再保留“模拟保存”按钮，以保持主界面的整洁。
 
 
 if __name__ == "__main__":

@@ -154,6 +154,58 @@ class WorkflowManager:
         self.nodes.append(new_node)
         return node_id
 
+    def delete_subtree(self, node_id):
+        """
+        删除以指定节点为根的整个子树，并处理父节点的退化。
+
+        Args:
+            node_id (str): 要删除的子树的根节点 ID。
+        """
+        node_to_delete = self.get_node(node_id)
+        if not node_to_delete:
+            return
+
+        # 1. 找到所有要删除的节点 (本身及其所有后代)
+        nodes_to_remove = []
+        queue = [node_id]
+        visited = {node_id}
+        
+        while queue:
+            current_id = queue.pop(0)
+            nodes_to_remove.append(current_id)
+            
+            # 找到所有子节点
+            children = [n['id'] for n in self.nodes if n.get('parent_id') == current_id]
+            for child_id in children:
+                if child_id not in visited:
+                    visited.add(child_id)
+                    queue.append(child_id)
+        
+        # 2. 从文件系统中删除关联的文件
+        for nid in nodes_to_remove:
+            node = self.get_node(nid)
+            if node and 'file_path' in node['data']:
+                filepath = node['data']['file_path']
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                    except OSError as e:
+                        print(f"Error deleting file {filepath}: {e}")
+
+        # 3. 从节点列表中移除这些节点
+        self.nodes = [n for n in self.nodes if n['id'] not in nodes_to_remove]
+
+        # 4. 处理父节点的退化
+        parent_id = node_to_delete.get('parent_id')
+        if parent_id:
+            parent_node = self.get_node(parent_id)
+            if parent_node:
+                # 检查父节点是否还有其他子节点
+                has_children = any(n.get('parent_id') == parent_id for n in self.nodes)
+                if not has_children and parent_node['type'] == 'operation':
+                    parent_node['type'] = 'leaf'
+                    print(f"Node {parent_id} has been demoted to a leaf node.")
+
     def to_mermaid(self):
         """
         将当前工作流数据转换为 Mermaid.js 格式的字符串，并包含用于渲染的 HTML。
