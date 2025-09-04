@@ -87,28 +87,25 @@
             window.WorkflowRenderer.render(treeData);
         }
 
-        // 这个函数用于模拟点击Gradio的隐藏按钮，将选中的节点ID传给后端
+        // 这个函数将选中的节点ID设置到Gradio的隐藏Textbox中
         function selectNodeInGradio(nodeId, imagePath) {
-            // 1. 找到存储选中节点ID的隐藏输入框
-            // Gradio通常会给组件一个CSS类，如`gradio-textbox`，并可以通过其父元素的ID来定位
-            // 假设我们的隐藏输入框在ID为`#selected-node-id-input`的组件内
-            const nodeIdInput = document.querySelector("#selected-node-id-input textarea");
-            if (nodeIdInput) {
-                nodeIdInput.value = nodeId;
-                // 触发input事件，让Gradio知道值已更改
-                nodeIdInput.dispatchEvent(new Event('input', { bubbles: true }));
+            // 1. 找到由 elem_id="selected-node-id-input" 定义的隐藏输入框的textarea
+            const nodeIdTextarea = document.querySelector("#selected-node-id-input textarea");
+            
+            if (nodeIdTextarea) {
+                nodeIdTextarea.value = nodeId;
+                // 2. 触发 'input' 事件，这是Gradio监听值变化的方式
+                nodeIdTextarea.dispatchEvent(new Event('input', { bubbles: true }));
             } else {
-                console.error("Could not find the hidden node ID input for Gradio.");
+                console.error("Could not find the hidden Gradio Textbox with elem_id='selected-node-id-input'.");
             }
 
-            // 2. 找到用于预览的隐藏按钮并点击它
+            // 3. 找到由 elem_id="preview-button" 定义的隐藏按钮并点击它
             const previewButton = document.querySelector("#preview-button");
             if (previewButton) {
-                // 如果需要传递额外参数（如图像路径），Gradio的JS API可能更复杂
-                // 简单起见，我们假设后端仅需要nodeId
                 previewButton.click();
             } else {
-                console.error("Could not find the hidden preview button for Gradio.");
+                console.error("Could not find the hidden Gradio Button with elem_id='preview-button'.");
             }
         }
     </script>

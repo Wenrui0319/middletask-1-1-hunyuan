@@ -72,31 +72,25 @@ def delete_node(node_id_to_delete, current_tree):
     tree_data = manager.delete_subtree(node_id_to_delete)
     return tree_data
 
-def js_render_trigger(tree_data):
-    """一个简单的透传函数，其输出将作为参数传递给JS函数"""
-    return tree_data
 
 # --- Gradio UI 构建 ---
 
 with gr.Blocks(theme=gr.themes.Soft(), css="static/css/style.css") as demo:
     gr.Markdown("# Gradio 工作流可视化 DEMO")
-    
-    # 存储状态的隐藏组件
+
+    # 存储状态和执行JS的隐藏组件
     with gr.Row(visible=False):
-        # 用于在前后端传递整个树的JSON数据
         workflow_json_state = gr.JSON(value=None)
-        # 用于从JS接收当前选中的节点ID
         selected_node_id_state = gr.Textbox(elem_id="selected-node-id-input")
-        # 用于从JS触发预览更新的隐藏按钮
         preview_trigger_button = gr.Button(elem_id="preview-button")
-    
+        # 新增一个专门用来执行JS的HTML组件
+        js_runner = gr.HTML()
+
     with gr.Row():
-        # 左侧：工作流和预览
         with gr.Column(scale=1):
             gr.Markdown("## 工作流历史")
-            # gr.HTML 现在只加载一次静态模板
-            workflow_html = gr.HTML(html_template, visible=True)
-            
+            # 主HTML视图只加载一次，不再动态更新
+            workflow_html = gr.HTML(html_template)
             gr.Markdown("## 节点预览")
             preview_image = gr.Image(label="选中节点图像预览", interactive=False)
 
@@ -122,50 +116,42 @@ with gr.Blocks(theme=gr.themes.Soft(), css="static/css/style.css") as demo:
 
     # --- 事件绑定 ---
 
-    # 核心渲染触发器：当JSON状态改变时，调用JS函数`renderWorkflowTree`
-    workflow_json_state.change(
-        fn=js_render_trigger,
-        inputs=workflow_json_state,
-        outputs=workflow_json_state, # 必须有一个输出，即使是透传
-        _js="renderWorkflowTree"
-    )
-    
-    # 1. 上传图像 -> 只更新JSON状态，这将自动触发上面的.change()事件
-    upload_button.upload(
-        fn=create_root,
-        inputs=[upload_button],
-        outputs=[workflow_json_state]
-    )
+    def create_js_call(tree_data):
+        """根据树数据生成JS调用脚本"""
+        if tree_data is None:
+            return "", tree_data
+        js_code = f"<script>renderWorkflowTree({json.dumps(tree_data)});</script>"
+        return js_code, tree_data
 
-    # 2. JS中点击节点 -> 触发预览图更新 (这部分逻辑不变)
+    # 1. 上传图像 -> 更新JSON状态，并返回JS脚本
+    @upload_button.upload(inputs=[upload_button], outputs=[js_runner, workflow_json_state])
+    def handle_upload(image_temp_path):
+        tree_data = create_root(image_temp_path)
+        return create_js_call(tree_data)
+
+    # 2. 预览功能不变
     preview_trigger_button.click(
         fn=update_preview,
         inputs=[selected_node_id_state],
         outputs=[preview_image]
     )
     
-    # 3. 点击"保存至工作区"按钮 -> 更新JSON状态
-    def create_save_handler(tab_name):
-        # 现在需要传入当前树的状态
-        return lambda node_id, tree: save_new_node(node_id, tab_name, tree)
+    # 3. 保存新节点 -> 更新JSON状态，并返回JS脚本
+    @save_button_a.click(inputs=[selected_node_id_state, workflow_json_state], outputs=[js_runner, workflow_json_state])
+    def handle_save_a(node_id, tree):
+        tree_data = save_new_node(node_id, "Grayscale", tree)
+        return create_js_call(tree_data)
 
-    save_button_a.click(
-        fn=create_save_handler("Grayscale"),
-        inputs=[selected_node_id_state, workflow_json_state],
-        outputs=[workflow_json_state]
-    )
-    save_button_b.click(
-        fn=create_save_handler("Inpainting"),
-        inputs=[selected_node_id_state, workflow_json_state],
-        outputs=[workflow_json_state]
-    )
+    @save_button_b.click(inputs=[selected_node_id_state, workflow_json_state], outputs=[js_runner, workflow_json_state])
+    def handle_save_b(node_id, tree):
+        tree_data = save_new_node(node_id, "Inpainting", tree)
+        return create_js_call(tree_data)
 
-    # 4. 点击"删除"按钮 -> 更新JSON状态
-    delete_button.click(
-        fn=delete_node,
-        inputs=[selected_node_id_state, workflow_json_state],
-        outputs=[workflow_json_state]
-    )
+    # 4. 删除节点 -> 更新JSON状态，并返回JS脚本
+    @delete_button.click(inputs=[selected_node_id_state, workflow_json_state], outputs=[js_runner, workflow_json_state])
+    def handle_delete(node_id, tree):
+        tree_data = delete_node(node_id, tree)
+        return create_js_call(tree_data)
 
 if __name__ == "__main__":
     # Gradio需要能访问到static目录，需按如下方式启动
