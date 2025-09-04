@@ -71,13 +71,13 @@ with gr.Blocks(js=js_script, css=css_style) as demo:
 
     # --- 后端逻辑绑定 (将在后续步骤中实现) ---
     
-    # 示例：启动时加载现有的工作流
+    # --- Backend Logic Binding ---
+    
+    # 应用加载时，渲染初始的工作流树
     def initial_load():
-        # 这里将在后续实现 to_mermaid 方法
-        # return wm.to_mermaid()
-        return "请上传一张图片或加载现有工作流。"
+        return wm.to_mermaid()
 
-    demo.load(fn=lambda: initial_load(), outputs=workflow_tree_html)
+    demo.load(fn=initial_load, outputs=workflow_tree_html)
 
 
 if __name__ == "__main__":
