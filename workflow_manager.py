@@ -73,6 +73,87 @@ class WorkflowManager:
                 return node
         return None
 
+    def add_root_node(self, original_filepath, file_type):
+        """
+        添加一个新的根节点 (当用户上传新图片时)。
+        文件将被复制到工作区内进行管理。
+
+        Args:
+            original_filepath (str): 上传文件的临时路径。
+            file_type (str): 文件的MIME类型。
+
+        Returns:
+            str: 新创建的节点 ID。
+        """
+        # 为文件创建一个安全的文件名并定义存储路径
+        filename = f"{uuid.uuid4().hex}_{os.path.basename(original_filepath)}"
+        new_filepath = os.path.join(self.workspace_dir, "uploads", filename)
+        
+        # 复制文件到工作区
+        # Gradio 的 gr.File/gr.Image 的 .name 就是临时路径
+        import shutil
+        shutil.copy(original_filepath, new_filepath)
+
+        node_id = str(uuid.uuid4())
+        new_node = {
+            "id": node_id,
+            "parent_id": None,
+            "type": "leaf",
+            "label": file_type.split('/')[-1].upper() if file_type else "FILE",
+            "data": {
+                "file_path": new_filepath,
+                "file_type": file_type,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        self.nodes.append(new_node)
+        return node_id
+
+    def add_child_node(self, parent_id, operation_name, output_image_path, params={}):
+        """
+        在指定父节点下添加一个新的操作节点。
+        如果父节点是 leaf，则将其类型转换为 operation。
+
+        Args:
+            parent_id (str): 父节点的 ID。
+            operation_name (str): 本次操作的名称，将作为新节点的 label。
+            output_image_path (str): 编辑后生成的输出图像的路径。
+            params (dict, optional): 本次操作所使用的参数。
+
+        Returns:
+            str | None: 新创建的节点 ID，如果父节点不存在则返回 None。
+        """
+        parent_node = self.get_node(parent_id)
+        if not parent_node:
+            print(f"Error: Parent node with ID {parent_id} not found.")
+            return None
+
+        # 如果父节点是叶子，则将其提升为操作节点
+        if parent_node['type'] == 'leaf':
+            parent_node['type'] = 'operation'
+
+        # 将输出图片复制到工作区
+        filename = f"{uuid.uuid4().hex}_{os.path.basename(output_image_path)}"
+        new_filepath = os.path.join(self.workspace_dir, "results", filename)
+        import shutil
+        shutil.copy(output_image_path, new_filepath)
+
+        node_id = str(uuid.uuid4())
+        new_node = {
+            "id": node_id,
+            "parent_id": parent_id,
+            "type": "leaf",  # 新创建的节点默认是叶子，直到它有自己的子节点
+            "label": operation_name,
+            "data": {
+                "file_path": new_filepath,
+                "file_type": f"image/{os.path.splitext(new_filepath)[1][1:]}",
+                "timestamp": datetime.now().isoformat(),
+                "operation_params": params
+            }
+        }
+        self.nodes.append(new_node)
+        return node_id
+
     def to_mermaid(self):
         """
         将当前工作流数据转换为 Mermaid.js 格式的字符串，并包含用于渲染的 HTML。
