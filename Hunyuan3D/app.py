@@ -19,6 +19,7 @@ import file_operations
 import qwen_edit_logic
 import qwen_inpainting_logic
 import gemini_gradio_app
+import gemini_image_edit_app
 
 try:
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gradio_tmp")
@@ -40,17 +41,6 @@ def build_app(args):
         title = title.replace(':', '-Turbo: Fast ')
 
     with gr.Blocks(theme=gr.themes.Base(), title='Hunyuan-3D-2.0', analytics_enabled=False, css=".gradio-container { max-width: unset !important; padding-left: 20px; padding-right: 20px; }") as demo:
-        # 主界面标题
-        gr.HTML("""
-        <div style="text-align: center;">
-            <h1 style="font-size: 2em; margin: 0; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-                Selective 3D Generation Engine
-            </h1>
-            <h2 style="font-size: 1em; margin: 10px 0 0 0; font-weight: 300; opacity: 0.9;">
-                Middle Task 1 - Team 1 
-            </h2>
-        </div>
-        """)
         with gr.Row():
             with gr.Column(scale=3):
                 with gr.Tabs():
@@ -88,6 +78,8 @@ def build_app(args):
                         qwen_inpainting_input_image = qwen_inpainting_logic.create_qwen_inpainting_ui(file_explorer)
                     with gr.Tab('Gemini Chat', id="Gemini Chat"):
                         gemini_uploaded_files_state, gemini_text_input = gemini_gradio_app.create_gemini_chat_ui()
+                    with gr.Tab('Gemini Image Edit', id="Gemini Image Edit"):
+                        gemini_image_edit_input_image = gemini_image_edit_app.create_gemini_image_edit_ui()
                     with gr.Tab('Hunyuan3D', id="Hunyuan3D"):
                         hunyuan_input_image = hunyuan_logic.create_hunyuan_ui(hunyuan_logic.SUPPORTED_FORMATS, hunyuan_logic.HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2, file_explorer)
         
@@ -98,7 +90,7 @@ def build_app(args):
         file_explorer.change(fn=file_operations.handle_file_selection, inputs=[file_explorer], outputs=[selected_files])
         file_explorer.change(fn=file_operations.preview_image, inputs=[file_explorer], outputs=[image])
         delete_btn.click(fn=file_operations.delete_selected_files, inputs=[selected_files], outputs=[file_explorer])
-        upload_btn.click(fn=file_operations.dispatch_image, inputs=[selected_files, active_tab_state], outputs=[sam_input_image, qwen_edit_input_image, qwen_inpainting_input_image, gemini_uploaded_files_state, gemini_text_input, hunyuan_input_image])
+        upload_btn.click(fn=file_operations.dispatch_image, inputs=[selected_files, active_tab_state], outputs=[sam_input_image, qwen_edit_input_image, qwen_inpainting_input_image, gemini_uploaded_files_state, gemini_text_input, gemini_image_edit_input_image, hunyuan_input_image])
         download_btn.click(
             fn=file_operations.download_selected_files,
             inputs=[selected_files],
@@ -132,34 +124,21 @@ if __name__ == '__main__':
     if args.sam_device is None:
         args.sam_device = args.device
 
-    project_root = os.path.dirname(os.path.abspath(__file__))
+    # project_root = os.path.dirname(os.path.abspath(__file__))
+    # hunyuan_logic.initialize_hunyuan(args, project_root)
     
-    hunyuan_logic.initialize_hunyuan(args, project_root)
-
     from argparse import Namespace
     sam_args = Namespace(device=args.sam_device)
-    sam_logic.initialize_sam(sam_args)
+    # sam_logic.initialize_sam(sam_args)
 
     hunyuan_logic.args = args
     hunyuan_logic.SAVE_DIR = temp_dir
 
     app = FastAPI()
-
-    static_dir = Path(hunyuan_logic.SAVE_DIR).absolute()
-    static_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/static", StaticFiles(directory=static_dir, html=False), name="static") # html=False is safer
-
-    env_maps_src = os.path.join(project_root, 'assets', 'env_maps')
-    env_maps_dest = os.path.join(static_dir, 'env_maps')
-    if os.path.exists(env_maps_src):
-        shutil.copytree(env_maps_src, env_maps_dest, dirs_exist_ok=True)
     
     demo = build_app(args)
     app = gr.mount_gradio_app(app, demo, path="/")
     
-    if args.low_vram_mode:
-        torch.cuda.empty_cache()
-
     print(f"\n>>> Gradio 服务即将启动！请在浏览器中打开 http://{args.host}:{args.port}")
     print(f"    - 主模型设备: {args.device}")
     print(f"    - SAM 模型设备: {args.sam_device}")
