@@ -316,14 +316,16 @@
 
         async fetchAndRenderTree() {
           const container = document.getElementById("treeContainer");
-          const emptyState = document.getElementById("emptyState");
           const statusBar = document.getElementById("statusBar");
 
           try {
             container.classList.add("loading");
             statusBar.textContent = "Loading files...";
+            container.innerHTML = ""; // Clear the container first
 
-            const response = await fetch("/api/files");
+            const response = await fetch(
+              `/api/files?_=${new Date().getTime()}`,
+            );
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`);
             }
@@ -331,28 +333,29 @@
             this.fileData = await response.json();
 
             if (this.fileData.length === 0) {
-              emptyState.innerHTML = `
-                            <svg fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"/>
-                            </svg>
-                            <div>No files found</div>
-                        `;
-              emptyState.style.display = "flex";
+              container.innerHTML = `
+                <div class="empty-state" id="emptyState" style="display: flex;">
+                  <svg fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"/>
+                  </svg>
+                  <div>No files found</div>
+                </div>`;
             } else {
-              emptyState.style.display = "none";
-              this.renderTree();
+              container.innerHTML = this.buildTreeHtml(this.fileData, 0);
+              this.injectActionButtons();
+              this.reinitializeTreeEventListeners();
             }
 
             statusBar.textContent = `${this.fileData.length} items`;
           } catch (error) {
             console.error("Failed to fetch file tree:", error);
-            emptyState.innerHTML = `
-                        <svg fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                        </svg>
-                        <div>Failed to load files</div>
-                    `;
-            emptyState.style.display = "flex";
+            container.innerHTML = `
+              <div class="empty-state" id="emptyState" style="display: flex;">
+                <svg fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                </svg>
+                <div>Failed to load files</div>
+              </div>`;
             statusBar.textContent = "Error loading files";
           } finally {
             container.classList.remove("loading");
@@ -360,10 +363,7 @@
         }
 
         renderTree() {
-          const container = document.getElementById("treeContainer");
-          container.innerHTML = this.buildTreeHtml(this.fileData, 0);
-          this.injectActionButtons();
-          this.reinitializeTreeEventListeners();
+          // This function's logic has been merged into fetchAndRenderTree for robustness.
         }
 
         buildTreeHtml(nodes, level) {
@@ -407,9 +407,6 @@
         createActionButtonsHtml() {
           return `
                     <div class="file-actions">
-                        <button class="action-btn" data-action="edit" title="Edit">
-                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
-                        </button>
                         <button class="action-btn" data-action="download" title="Download">
                             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
                         </button>
@@ -529,9 +526,7 @@
               const node = actionBtn.closest(".tree-node");
               const action = actionBtn.dataset.action;
 
-              if (action === "edit") {
-                this.editItem(node);
-              } else if (action === "download") {
+              if (action === "download") {
                 this.downloadItem(node);
               } else if (action === "delete") {
                 this.deleteItem(node);
@@ -564,14 +559,18 @@
           if (node && node.dataset.type === "file") {
             const path = node.dataset.path;
             // Find the Gradio textbox in the parent window
-            const gradioInput =
-              window.parent.document.querySelector("#file_path_input textarea");
+            const gradioInput = window.parent.document.querySelector(
+              "#file_path_input textarea",
+            );
 
             if (gradioInput) {
               gradioInput.value = path;
-              // Create and dispatch a 'change' event
-              const event = new Event("change", { bubbles: true });
-              gradioInput.dispatchEvent(event);
+              // Create and dispatch an 'input' event, which is often used for real-time updates
+              const inputEvent = new Event("input", { bubbles: true });
+              gradioInput.dispatchEvent(inputEvent);
+              // Also dispatch a 'change' event for good measure
+              const changeEvent = new Event("change", { bubbles: true });
+              gradioInput.dispatchEvent(changeEvent);
             } else {
               console.error("Could not find the Gradio input textbox.");
             }
@@ -667,20 +666,9 @@
 
         openFile(path) {
           // This function is triggered on double-click or Enter on a file.
-          // We will treat this as a 'PREVIEW' action.
-          const relativePath = path.startsWith("data/")
-            ? path.substring(5)
-            : path;
-          fetch(`/api/preview?path=${encodeURIComponent(relativePath)}`, {
-            method: "POST",
-          })
-            .then((response) => {
-              console.log(response);
-            })
-            .catch((error) => {
-              console.error("Error during preview:", error);
-              alert("An unexpected error occurred during preview.");
-            });
+          // The main logic is handled by selectItem, so this can be empty or
+          // used for other iframe-specific logic in the future.
+          console.log("openFile triggered for:", path);
         }
 
         uploadFile(files) {
@@ -698,37 +686,23 @@
                 this.fetchAndRenderTree(); // Refresh explorer on success
               } else {
                 response.json().then((data) => {
-                  alert(
+                  console.error(
                     `Error uploading files: ${data.detail || "Unknown error"}`,
                   );
                 });
               }
             })
             .catch((error) => {
-              console.error("Error during upload:", error);
-              alert("An unexpected error occurred during upload.");
+              console.error("An unexpected error occurred during upload:", error);
             });
         }
 
         editItem(node) {
+          // This function is triggered by the edit button.
+          // The main logic is handled by selectItem, so this can be empty or
+          // used for other iframe-specific logic in the future.
           const path = node.dataset.path;
-          const relativePath = path.startsWith("data/")
-            ? path.substring(5)
-            : path;
-
-          // Get the active tab from parent Gradio app if available
-          const activeTab = window.activeGradioTab || "SAM";
-
-          fetch(`/api/edit?path=${encodeURIComponent(relativePath)}`, {
-            method: "POST",
-          })
-            .then((response) => {
-              console.log(response);
-            })
-            .catch((error) => {
-              console.error("Error during edit:", error);
-              alert("An unexpected error occurred during the edit action.");
-            });
+          console.log("editItem triggered for:", path);
         }
 
         downloadItem(node) {
@@ -748,27 +722,28 @@
           const relativePath = path.startsWith("data/")
             ? path.substring(5)
             : path;
-          if (confirm(`Remove ${node.dataset.type}: ${relativePath}?`)) {
-            fetch(`/api/delete?path=${encodeURIComponent(relativePath)}`, {
-              method: "DELETE",
+          // Remove confirm dialog for a smoother experience
+          fetch(`/api/delete?path=${encodeURIComponent(relativePath)}`, {
+            method: "DELETE",
+          })
+            .then((response) => {
+              if (response.ok) {
+                // On successful deletion, refresh the file explorer
+                this.fetchAndRenderTree();
+              } else {
+                response.json().then((data) => {
+                  console.error(
+                    `Error deleting file: ${data.detail || "Unknown error"}`,
+                  );
+                });
+              }
             })
-              .then((response) => {
-                if (response.ok) {
-                  // On successful deletion, refresh the file explorer
-                  this.fetchAndRenderTree();
-                } else {
-                  response.json().then((data) => {
-                    alert(
-                      `Error deleting file: ${data.detail || "Unknown error"}`,
-                    );
-                  });
-                }
-              })
-              .catch((error) => {
-                console.error("Error during delete:", error);
-                alert("An unexpected error occurred during deletion.");
-              });
-          }
+            .catch((error) => {
+              console.error(
+                "An unexpected error occurred during deletion:",
+                error,
+              );
+            });
         }
 
         refreshExplorer() {
@@ -782,4 +757,3 @@
     </script>
   </body>
 </html>
-

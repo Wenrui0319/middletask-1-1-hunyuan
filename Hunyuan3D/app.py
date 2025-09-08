@@ -67,7 +67,7 @@ def build_app(args):
         selected_file_state = gr.State(None)
         # Hidden textbox to receive file path from HTML
         file_path_input = gr.Textbox(
-            label="File Path", visible=False, elem_id="file_path_input"
+            label="File Path", visible=True, elem_id="file_path_input"
         )
         # State to determine the action (preview or edit)
         file_action_state = gr.State("preview")
@@ -140,18 +140,72 @@ def build_app(args):
 
         tabs_output.select(fn=on_tab_select, inputs=None, outputs=[active_tab_state])
 
-        def update_selected_file(file_path):
+        def update_selected_file(file_path, active_tab):
             """
-            Update the selected_file_state with the path from the hidden textbox.
+            Update the selected_file_state, preview the image, and dispatch it
+            to the active tab.
             """
+            print(
+                f"update_selected_file called with file_path: {file_path}, active_tab: {active_tab}"
+            )
+            if not file_path:
+                # Return updates to clear all fields if file_path is empty
+                return (
+                    None,
+                    None,
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                )
 
-            print(f"Selected file: {file_path}")
-            return file_path
+            # Ensure the path has the correct 'data/' prefix for backend operations
+            if not file_path.startswith("data/"):
+                prefixed_path = os.path.join("data", file_path)
+            else:
+                prefixed_path = file_path
+
+            preview_update = file_operations.preview_image([prefixed_path])
+
+            dispatched_updates = file_operations.dispatch_image(
+                [prefixed_path], active_tab
+            )
+
+            (
+                sam_update,
+                qwen_edit_update,
+                qwen_inp_update,
+                gemini_state_update,
+                gemini_text_update,
+                hunyuan_update,
+            ) = dispatched_updates
+
+            return (
+                prefixed_path,
+                preview_update,
+                sam_update,
+                qwen_edit_update,
+                qwen_inp_update,
+                gemini_state_update,
+                gemini_text_update,
+                hunyuan_update,
+            )
 
         file_path_input.change(
             fn=update_selected_file,
-            inputs=[file_path_input],
-            outputs=[selected_file_state],
+            inputs=[file_path_input, active_tab_state],
+            outputs=[
+                selected_file_state,
+                image,
+                sam_input_image,
+                qwen_edit_input_image,
+                qwen_inpainting_input_image,
+                gemini_uploaded_files_state,
+                gemini_text_input,
+                hunyuan_input_image,
+            ],
         )
 
         demo.load(fn=sam_logic.check_sam_model_on_load)
@@ -205,20 +259,6 @@ if __name__ == "__main__":
     hunyuan_logic.SAVE_DIR = temp_dir
 
     app = FastAPI()
-
-    @app.get("/api/preview")
-    async def preview_files(path: str):
-        safe_base_dir = os.path.abspath("data")
-        requested_path = os.path.abspath(os.path.join(safe_base_dir, path.strip("/\\")))
-        # TODO
-        # Call the file_operations.preview_image(requested_path)
-
-    @app.get("/api/edit")
-    async def edit_files(path: str):
-        safe_base_dir = os.path.abspath("data")
-        requested_path = os.path.abspath(os.path.join(safe_base_dir, path.strip("/\\")))
-        # TODO
-        # Call the file_operations.dispatch_image(requested_path, active_tab_state)
 
     @app.get("/api/files")
     async def read_files():
