@@ -145,7 +145,7 @@ import time
 def save_image_to_workspace(image, subfolder, prefix):
     if image is None:
         gr.Warning("没有图像可保存。")
-        return gr.FileExplorer(key=str(time.time()))
+        return
 
     try:
         save_dir = os.path.join("data", subfolder)
@@ -164,16 +164,14 @@ def save_image_to_workspace(image, subfolder, prefix):
         image.save(save_path)
         
         gr.Info(f"图像已保存至 {save_path}")
-        return gr.FileExplorer(key=str(time.time()))
         
     except Exception as e:
         gr.Error(f"保存图像失败: {e}")
-        return gr.FileExplorer(key=str(time.time()))
 
 def process_and_save_masked_image(image_dict):
     if image_dict is None or 'background' not in image_dict or image_dict['background'] is None:
         gr.Warning("没有图像可处理。")
-        return gr.FileExplorer(key=str(time.time()))
+        return
         
     base_image_pil = Image.fromarray(image_dict['background'])
     
@@ -192,7 +190,7 @@ def process_and_save_masked_image(image_dict):
     if not np.any(np.array(output_image.getchannel('A'))):
         output_image = output_image.convert("RGB")
 
-    return save_image_to_workspace(output_image, "qwen_inpainting", "masked")
+    save_image_to_workspace(output_image, "qwen_inpainting", "masked")
 
 def upload_masked_image(file_obj):
     if file_obj is None:
@@ -230,7 +228,7 @@ def upload_masked_image(file_obj):
 
 
 # --- 3. Gradio UI Layout ---
-def create_qwen_inpainting_ui(file_explorer):
+def create_qwen_inpainting_ui():
     with gr.Blocks(theme=gr.themes.Base(), analytics_enabled=False, css=".info-icon {display: flex; align-items: center; justify-content: center;}") as demo:
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -298,12 +296,12 @@ def create_qwen_inpainting_ui(file_explorer):
         save_mask_btn.click(
             fn=process_and_save_masked_image,
             inputs=[input_img],
-            outputs=[file_explorer]
+            outputs=[]
         )
         
         save_result_btn.click(
             fn=lambda img: save_image_to_workspace(img, "qwen_inpainting", "inpainted"),
             inputs=[output_img],
-            outputs=[file_explorer]
+            outputs=[]
         )
     return input_img

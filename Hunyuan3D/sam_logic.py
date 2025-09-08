@@ -70,10 +70,10 @@ def save_rgba_to_data_png(rgba_array: np.ndarray, filename: str) -> Optional[str
         gr.Error(f"保存图片至data/sam文件夹失败")
         return None
 
-def handle_save_cutouts(image_list: List[Tuple[str, Any]]) -> str:
+def handle_save_cutouts(image_list: List[Tuple[str, Any]]):
     if not image_list:
         gr.Warning("没有抠图结果可保存。")
-        return gr.FileExplorer()
+        return
     saved_count = 0
     for item in image_list:
         temp_file_path = item[0]
@@ -87,7 +87,6 @@ def handle_save_cutouts(image_list: List[Tuple[str, Any]]) -> str:
             gr.Error(f"保存文件失败: {os.path.basename(temp_file_path)}. 错误信息: {e}")
     if saved_count > 0: gr.Info(f"成功保存 {saved_count} 个抠图到 data/sam 文件夹。")
     else: gr.Info(f"没有新的抠图被保存。")
-    return gr.FileExplorer(key=str(time.time()))
 
 def create_color_mask(image: np.ndarray, annotations: List[Dict[str, Any]]) -> np.ndarray:
     if not annotations: return image
@@ -221,7 +220,7 @@ def reset_all_sam(original_image):
         return "就绪", None, None, [], None, None
 # --- END: 核心修改 ---
 
-def create_sam_ui(sam_predictor_global, file_explorer, device):
+def create_sam_ui(sam_predictor_global, device):
     sam_predictor_state = gr.State(sam_predictor_global)
     sam_original_image_state = gr.State(None)
     sam_mask_state = gr.State(None)
@@ -294,6 +293,6 @@ def create_sam_ui(sam_predictor_global, file_explorer, device):
     reset_outputs = [status_text, interactive_display, sam_mask_state, sam_history_state, cutout_gallery, sam_box_start_state]
     reset_btn.click(fn=reset_all_sam, inputs=[sam_original_image_state], outputs=reset_outputs)
     
-    save_to_data_btn.click(fn=handle_save_cutouts, inputs=[cutout_gallery], outputs=[file_explorer])
+    save_to_data_btn.click(fn=handle_save_cutouts, inputs=[cutout_gallery], outputs=[])
     
     return hidden_image_receiver

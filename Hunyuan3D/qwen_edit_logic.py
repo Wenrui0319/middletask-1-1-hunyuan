@@ -135,7 +135,7 @@ import time
 def save_image_to_workspace(image):
     if image is None:
         gr.Warning("没有图像可保存。")
-        return gr.FileExplorer(key=str(time.time()))
+        return
 
     try:
         save_dir = "data/qwen_edit"
@@ -153,15 +153,13 @@ def save_image_to_workspace(image):
         image.save(save_path)
         
         gr.Info(f"图像已保存至 {save_path}")
-        return gr.FileExplorer(key=str(time.time()))
         
     except Exception as e:
         gr.Error(f"保存图像失败: {e}")
-        return gr.FileExplorer(key=str(time.time()))
 
 
 # --- 3. Gradio UI Layout ---
-def create_qwen_edit_ui(file_explorer):
+def create_qwen_edit_ui():
     with gr.Blocks(theme=gr.themes.Base(), analytics_enabled=False, css=".info-icon {display: flex; align-items: center; justify-content: center;}") as demo:
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -210,6 +208,6 @@ def create_qwen_edit_ui(file_explorer):
         all_outputs = [status_text, output_img, comparison_img, edit_btn]
     
         edit_btn.click(fn=run_generation, inputs=all_inputs, outputs=all_outputs)
-        save_btn.click(fn=save_image_to_workspace, inputs=[output_img], outputs=[file_explorer])
+        save_btn.click(fn=save_image_to_workspace, inputs=[output_img], outputs=[])
 
     return input_img

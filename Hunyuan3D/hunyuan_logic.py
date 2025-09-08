@@ -275,7 +275,7 @@ def shape_generation(
         torch.cuda.empty_cache()
     return gr.update(value=path), model_viewer_html, stats, seed
 
-def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2, file_explorer):
+def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, caption, mv_image_front, mv_image_back, mv_image_left, mv_image_right, file_out, file_out2):
     with gr.Row(equal_height=True):
         with gr.Column(scale=1, min_width=250):
             geneting_image = gr.Image(label='待生成图片', type='pil', image_mode='RGBA', height=290, elem_id="hunyuan_input_image")
@@ -362,8 +362,8 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
             path = export_mesh(mesh, save_folder, textured=is_textured, type=file_type_val)
             model_viewer_html = build_model_viewer_html(save_folder, height=HTML_HEIGHT, width=HTML_WIDTH, textured=is_textured)
             
-            file_explorer_update = gr.FileExplorer(key=str(time.time())) if save_to_path else gr.update()
-            return model_viewer_html, gr.update(value=path, interactive=True), file_explorer_update
+            file_explorer_update = gr.update() if save_to_path else gr.update()
+            return model_viewer_html, gr.update(value=path, interactive=True)
 
         confirm_export.click(
             fn=lambda: gr.update(selected='export_mesh_panel'),
@@ -372,7 +372,7 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num],
-            outputs=[html_export_mesh, file_export, file_explorer]
+            outputs=[html_export_mesh, file_export]
         )
 
         save_3d_btn.click(
@@ -382,7 +382,7 @@ def create_hunyuan_ui(SUPPORTED_FORMATS, HTML_OUTPUT_PLACEHOLDER, tabs_output, c
         ).then(
             on_export_click,
             inputs=[file_out, file_out2, file_type, reduce_face, export_texture, target_face_num, gr.State("data/hunyuan")],
-            outputs=[html_export_mesh, file_export, file_explorer]
+            outputs=[html_export_mesh, file_export]
         )
         
     return geneting_image
