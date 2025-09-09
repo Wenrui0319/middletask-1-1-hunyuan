@@ -1,67 +1,78 @@
+## 部署与安装指南
 
- 进度监督会为每周四19:00
-## 功能需求
-### 基础功能
-先实例分割，再重建
-### 进阶功能
-复杂功能和finetune模型
-1. ***处理因遮挡导致的物体分割不全的问题。***
-2. ***对于穿衣服的人，人体和衣物分别生成。***
-3. ***同时多次点击后区分部件再多个组件同时生成***。分开后的组件之间怎么保证不穿模
-## 项目依托
-### SAM2/SAM等实例分割demo
-实例分割控件
-多线程并发（参考SAM2 demo backend）
-### HunYuan Gradio Demo
-前端和后端都用python实现，上手应该比较简单。
-## 分工
-王雯睿：汇报，联络；算法和模型
-杜斌：组长；算法和模型
-刘文博：开发
-党浩川：开发
-## 项目协作
-工作协调会：总结会议：每周三晚上9:00；工作安排会议：每周四晚上9:00
-每周汇报：周三开完会后，组长列出提纲，组员填写内容。
-服务器的问题。
-## 工作流和UI设计
-四种编辑功能：SAM2实例分割、身体和服饰分离、Qwen-Image-Edit、混元生成。
-工作流记录，方便状态回退。
-三栏工作区：图像候选区、图像编辑区、效果预览区。
-## 第二周汇总
-本周工作：
-1、部署、分析SAM2的demo：很遗憾，该demo面向视频流分割设计，且UI与预期效果大相径庭，无法作为二次开发的基础；但对并发需求的处理、消息的封装逻辑可以作为参考（需要具体一下）；
-2、拟基于gradio开发：hunyuan的gradio demo可以作为二次开发的基础，通过部署使用确定效果良好，满足需要；gradio支持热加载，方便开发中测试；gradio基于纯python，比较友好；
-3、衣物和人体分开生成：首先从图片中分割出完整的角色；然后，基于visual try-on领域的模型，分离人体和衣物；最后，送到hunyuan中生成。
-4、处理分割时的遮挡问题：通过qwen-image-edit模型处理；
-5、多合一的图像预处理：测试新发布的阿里qwen-image-edit模型，可以通过提示工程完成各种生成需求：遮挡物分离、细节修补，但分割不行（因为是生成模型，不确定性高）。
-难点：
-1、visual try-on模型，目前找到的模型都面向现实数据集，可能需要面向anime风格重新训练。如果找不到合适的数据集，可能需要大量anime 3D资产（身体和衣物/配饰可以分离的）来构建数据集。
-## 第二周工作成果
-见周报
-## 第三周工作安排
-开发侧：
-1. 尝试将SAM和hunyuan进行拼接，通过点击功能标签调出相应工作区；
-2. 暂时不考虑并发，跑通线形流程再说；
-3. 暂定于下周一/二开会讨论前端和后端的细部设计，开发小组内部可以先行调研和分析，与其他成员沟通。
+### 1. 环境准备
 
-模型侧：
-1. 继续调研衣体分离模型，尽量能够适应3D Anime风格。
-2. 量化版qwen-image-edit部署；
-3. qwen-image-edit提示工程，设置一些示例提示词，能够达到较好的编辑效果；
-4. 建立3D Anime图像数据集，风格接近混元Demo中的示例，用于平时的测试。
-## 第三周工作安排更新
-### 开发侧
-葛俊辰：组织开发侧工作，混元编辑功能子页面；
-刘文博：文件系统实现；
-党浩川：代码解耦和归档、sam1编辑功能子页面
-罗雅淇：qwen-image-edit功能子页面；
+在开始之前，请确保您的系统已安装以下基础软件：
 
-### 模型侧
-杜斌：组织工作，框架搭建，Qwen-Image-Edit部署和API研究；
-王雯睿：人体生成和衣服生成方面模型调研和测试；
-黄耀祖：用于工作流测试的图像数据集，风格需要接近混元demo上的examples，元素：有/无背景，服饰纹理比较简单的人物，视角不是正面的角色，不同姿势的角色，含有不同程度遮挡的图等
+*   **Git**: 用于克隆项目仓库。
+*   **Python**: 推荐使用 `3.8` 或更高版本。
+*   **pip**: Python 包管理器 (通常随 Python 一起安装)。
+*   **wget**: 用于从命令行下载文件。
+*   **(可选但强烈推荐) NVIDIA GPU**: 并已正确安装相应的 [CUDA](https://developer.nvidia.com/cuda-downloads) 和 [cuDNN](https://developer.nvidia.com/cudnn) 驱动，以便进行GPU加速。
+*   **C/C++ 编译器**: 用于编译自定义的 CUDA 核心。在基于 Debian/Ubuntu 的系统上，可以通过 `sudo apt install build-essential` 安装。
 
-## 第四周
-系统优化；
-系统测试；
-开发报告。
+### 2. 克隆项目仓库
+
+```bash
+git clone https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
+
+```
+### 3. 后端模型安装
+创建虚拟环境`Hunyuan`部署`Hunyuan 3D-2`和`SAM`模型；虚拟环境`Qwen`部署基于`Qwen-Image-Edit`模型的ComfyUI全局重绘和局部重绘工作流
+#### A.安装 Hunyuan 3D-2 模型
+```bash
+cd Hunyuan3D-2
+pip install -r requirements.txt
+pip install -e .
+# for texture
+cd hy3dgen/texgen/custom_rasterizer
+python3 setup.py install
+cd ../../..
+cd hy3dgen/texgen/differentiable_renderer
+python3 setup.py install
+```
+
+#### B. 安装 Segment Anything (SAM)
+
+此步骤将安装 SAM 库并下载预训练的模型权重。
+
+```bash
+# 1. 从官方GitHub仓库安装SAM库
+pip install git+https://github.com/facebookresearch/segment-anything.git
+
+# 2. 创建模型存储目录 (如果尚不存在)
+mkdir -p models
+
+# 3. 下载预训练的SAM模型权重
+# ViT-H (推荐, 效果最好)
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth -O models/sam_vit_h_4b8939.pth
+# ViT-L (次之)
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -O models/sam_vit_l_0b3195.pth
+# ViT-B (最小)
+wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O models/sam_vit_b_01ec64.pth
+```
+
+#### C.通过 ComfyUI 部署 Qwen-Image-Edit 和 Qwen-Image-InPainting 工作流
+安装ComfyUI软件：[ComfyUI Linux Installation Tutorial | ComfyUI Wiki](https://comfyui-wiki.com/en/install/install-comfyui/install-comfyui-on-linux)
+```bash
+comfy launch -- --enable-cors#启动comfyUI
+#通过http://localhost:8081访问
+```
+在templates->image中找到Qwen-Image-Edit，下载并在指定目录放好模型文件，搭建工作流。或者直接导入工作流文件`image_qwen_image_edit.json`。
+导入工作流文件`Qwen+Image+Inapint模型局部重绘V1.json`，下载并放置好模型文件。
+
+#### D.通过 Gemini CLI 获取 Gemini 2.5 Pro API
+
+#### E.获取 Nano Banana 图像编辑模型的API
+将API key 填入 `gemini_image_edit_app.py`
+
+### 4.运行
+```bash
+#进入Qwen虚拟环境启动Qwen-Image-Edit和Qwen-Image-InPainting工作流
+comfy launch -- --enable-cors
+```
+```bash
+#进入Hunyuan虚拟环境启动前端主程序、Hunyuan 3D后端、SAM后端
+python app.py --sam_device cuda:2 --device cuda:1
+```
+通过`http://localhost:4000`访问主页面。
