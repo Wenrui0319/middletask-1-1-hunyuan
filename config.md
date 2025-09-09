@@ -74,5 +74,5 @@ comfy launch -- --enable-cors
 ```bash
 #进入Hunyuan虚拟环境启动前端主程序、Hunyuan 3D后端、SAM后端
 python app.py --sam_device cuda:2 --device cuda:1
-#通过http://localhost:4000访问
 ```
+通过`http://localhost:4000`访问主页面。
