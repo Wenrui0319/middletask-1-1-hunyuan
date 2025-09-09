@@ -11,7 +11,7 @@
 *   **(可选但强烈推荐) NVIDIA GPU**: 并已正确安装相应的 [CUDA](https://developer.nvidia.com/cuda-downloads) 和 [cuDNN](https://developer.nvidia.com/cudnn) 驱动，以便进行GPU加速。
 *   **C/C++ 编译器**: 用于编译自定义的 CUDA 核心。在基于 Debian/Ubuntu 的系统上，可以通过 `sudo apt install build-essential` 安装。
 
-### 2. 后端模型部署
+### 2. 克隆项目仓库
 
 首先，我们将克隆主项目仓库、创建虚拟环境并安装核心依赖。
 
