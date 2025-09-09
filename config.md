@@ -1,6 +1,4 @@
-## 🚀 部署与安装指南
-
-本文档将指导您完成部署 `Hunyuan3D-2` 和 `Segment Anything` 所需的全部环境配置和安装步骤。
+## 部署与安装指南
 
 ### 1. 环境准备
 
@@ -12,6 +10,7 @@
 *   **wget**: 用于从命令行下载文件。
 *   **(可选但强烈推荐) NVIDIA GPU**: 并已正确安装相应的 [CUDA](https://developer.nvidia.com/cuda-downloads) 和 [cuDNN](https://developer.nvidia.com/cudnn) 驱动，以便进行GPU加速。
 *   **C/C++ 编译器**: 用于编译自定义的 CUDA 核心。在基于 Debian/Ubuntu 的系统上，可以通过 `sudo apt install build-essential` 安装。
+* 
 
 ### 2. 主项目安装
 
