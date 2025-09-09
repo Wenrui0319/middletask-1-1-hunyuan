@@ -53,6 +53,7 @@ wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O mod
 ```
 
 #### B.通过 ComfyUI 部署 Qwen-Image-Edit 和 Qwen-Image-InPainting 模型
+创建新的虚拟环境
 安装ComfyUI软件：[ComfyUI Linux Installation Tutorial | ComfyUI Wiki](https://comfyui-wiki.com/en/install/install-comfyui/install-comfyui-on-linux)
 ```bash
 # 1. 从官方GitHub仓库安装SAM库
