@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modern IDE File Explorer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #1e1e1e;
+        color: #cccccc;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      .file-explorer {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background-color: #252526;
+      }
+
+      .header {
+        background-color: #3c3c3c;
+        padding: 8px 16px;
+        border-bottom: 1px solid #454545;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 40px;
+      }
+
+      .header h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn {
+        background: none;
+        border: none;
+        color: #cccccc;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+      }
+
+      .btn:hover {
+        background-color: #2d2d30;
+      }
+
+      .btn:active {
+        background-color: #37373d;
+      }
+
+      .tree-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+      }
+
+      .tree-node {
+        position: relative;
+        cursor: pointer;
+      }
+
+      .tree-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding: 4px 16px 4px 8px;
+        border-radius: 3px;
+        margin: 1px 4px;
+        transition: background-color 0.2s;
+        min-height: 24px;
+      }
+
+      .tree-content:hover {
+        background-color: #37373d;
+      }
+
+      .tree-content:hover .file-actions {
+        display: flex;
+      }
+
+      .tree-content.selected {
+        background-color: #094771;
+        color: #ffffff;
+      }
+
+      .tree-content.selected:hover {
+        background-color: #0e639c;
+      }
+
+      .tree-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+        border-radius: 2px;
+        transition: transform 0.2s;
+      }
+
+      .tree-toggle.expanded {
+        transform: rotate(90deg);
+      }
+
+      .tree-toggle:hover {
+        background-color: #45494e;
+      }
+
+      .tree-icon {
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        flex-shrink: 0;
+      }
+
+      .folder-icon {
+        color: #dcb67a;
+      }
+
+      .file-icon {
+        color: #cccccc;
+      }
+
+      .tree-label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+
+      .tree-children {
+        display: none;
+        margin-left: 16px;
+      }
+
+      .tree-children.expanded {
+        display: block;
+      }
+
+      .file-actions {
+        display: none;
+        gap: 4px;
+        margin-left: auto;
+        padding-left: 8px;
+      }
+
+      .action-btn {
+        background: none;
+        border: none;
+        color: #cccccc;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+        width: 20px;
+        height: 20px;
+      }
+
+      .action-btn:hover {
+        background-color: #2d2d30;
+      }
+
+      .search-container {
+        position: relative;
+        margin: 8px 16px;
+      }
+
+      .search-input {
+        width: 100%;
+        padding: 6px 8px;
+        background-color: #3c3c3c;
+        border: 1px solid #5a5a5a;
+        border-radius: 3px;
+        color: #cccccc;
+        font-size: 12px;
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: #007acc;
+      }
+
+      .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: #2d2d30;
+        border: 1px solid #5a5a5a;
+        border-radius: 3px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+      }
+
+      .status-bar {
+        background-color: #007acc;
+        color: white;
+        padding: 4px 16px;
+        font-size: 12px;
+        border-top: 1px solid #454545;
+      }
+
+      .loading {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #858585;
+        font-size: 14px;
+      }
+
+      .empty-state svg {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="file-explorer">
+      <div class="header">
+        <h3>Files</h3>
+        <div class="actions">
+          <button class="btn" id="uploadBtn" title="Upload Files">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path
+                d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"
+              />
+              <path
+                d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"
+              />
+            </svg>
+          </button>
+          <button class="btn" id="refreshBtn" title="Refresh (F5)">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path
+                fill-rule="evenodd"
+                d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"
+              />
+              <path
+                d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="search-container">
+        <input
+          type="text"
+          class="search-input"
+          id="searchInput"
+          placeholder="Search files..."
+        />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
+      <div class="tree-container" id="treeContainer">
+        <div class="empty-state" id="emptyState">
+          <svg fill="currentColor" viewBox="0 0 16 16">
+            <path
+              d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"
+            />
+          </svg>
+          <div>Loading files...</div>
+        </div>
+      </div>
+
+      <div class="status-bar" id="statusBar">Ready</div>
+    </div>
+
+    <script>
+      class ModernFileExplorer {
+        constructor() {
+          this.selectedItem = null;
+          this.fileData = [];
+
+          this.initializeEventListeners();
+          this.fetchAndRenderTree();
+        }
+
+        async fetchAndRenderTree() {
+          const container = document.getElementById("treeContainer");
+          const statusBar = document.getElementById("statusBar");
+
+          try {
+            container.classList.add("loading");
+            statusBar.textContent = "Loading files...";
+            container.innerHTML = ""; // Clear the container first
+
+            const response = await fetch(
+              `/api/files?_=${new Date().getTime()}`,
+            );
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            this.fileData = await response.json();
+
+            if (this.fileData.length === 0) {
+              container.innerHTML = `
+                <div class="empty-state" id="emptyState" style="display: flex;">
+                  <svg fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"/>
+                  </svg>
+                  <div>No files found</div>
+                </div>`;
+            } else {
+              container.innerHTML = this.buildTreeHtml(this.fileData, 0);
+              this.injectActionButtons();
+              this.reinitializeTreeEventListeners();
+            }
+
+            statusBar.textContent = `${this.fileData.length} items`;
+          } catch (error) {
+            console.error("Failed to fetch file tree:", error);
+            container.innerHTML = `
+              <div class="empty-state" id="emptyState" style="display: flex;">
+                <svg fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                </svg>
+                <div>Failed to load files</div>
+              </div>`;
+            statusBar.textContent = "Error loading files";
+          } finally {
+            container.classList.remove("loading");
+          }
+        }
+
+        renderTree() {
+          // This function's logic has been merged into fetchAndRenderTree for robustness.
+        }
+
+        buildTreeHtml(nodes, level) {
+          let html = "";
+          for (const node of nodes) {
+            if (node.type === "folder") {
+              html += `
+                            <div class="tree-node" data-path="${node.path}" data-type="folder">
+                                <div class="tree-content" data-level="${level}">
+                                    <div class="tree-toggle">
+                                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 0 0 .708.5.5 0 0 0 .708 0L10.293 8 5.354 2.646a.5.5 0 0 0-.708 0z"/>
+                                        </svg>
+                                    </div>
+                                    <svg class="tree-icon folder-icon" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"/>
+                                    </svg>
+                                    <span class="tree-label">${node.name}</span>
+                                </div>
+                                <div class="tree-children">
+                                    ${node.children ? this.buildTreeHtml(node.children, level + 1) : ""}
+                                </div>
+                            </div>
+                        `;
+            } else {
+              html += `
+                            <div class="tree-node" data-path="${node.path}" data-type="file">
+                                <div class="tree-content" data-level="${level}">
+                                    <svg class="tree-icon file-icon" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2.5z"/>
+                                    </svg>
+                                    <span class="tree-label">${node.name}</span>
+                                </div>
+                            </div>
+                        `;
+            }
+          }
+          return html;
+        }
+
+        createActionButtonsHtml() {
+          return `
+                    <div class="file-actions">
+                        <button class="action-btn" data-action="edit" title="Edit">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V12h2.293L12.793 5.5z"/></svg>
+                        </button>
+                        <button class="action-btn" data-action="download" title="Download">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                        </button>
+                        <button class="action-btn" data-action="delete" title="Remove">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                        </button>
+                    </div>
+                `;
+        }
+
+        injectActionButtons() {
+          document.querySelectorAll(".tree-content").forEach((content) => {
+            if (!content.querySelector(".file-actions")) {
+              content.insertAdjacentHTML(
+                "beforeend",
+                this.createActionButtonsHtml(),
+              );
+            }
+          });
+        }
+
+        initializeEventListeners() {
+          // Search functionality
+          const searchInput = document.getElementById("searchInput");
+          searchInput.addEventListener("input", (e) => {
+            this.searchFiles(e.target.value);
+          });
+
+          // Action buttons in header
+          // Handle file input for uploads
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.multiple = true;
+          fileInput.style.display = "none";
+          document.body.appendChild(fileInput);
+
+          document.getElementById("uploadBtn").addEventListener("click", () => {
+            fileInput.click();
+          });
+
+          fileInput.addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+              this.uploadFile(e.target.files);
+            }
+          });
+
+          document
+            .getElementById("refreshBtn")
+            .addEventListener("click", () => {
+              this.refreshExplorer();
+            });
+
+          // Keyboard shortcuts
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "F5") {
+              e.preventDefault();
+              this.refreshExplorer();
+            }
+            if (e.key === "Enter" && this.selectedItem) {
+              const node = this.selectedItem.closest(".tree-node");
+              if (node.dataset.type === "folder") {
+                const toggle = this.selectedItem.querySelector(".tree-toggle");
+                this.toggleFolder(toggle);
+              } else {
+                this.openFile(node.dataset.path);
+              }
+            }
+            if (e.key === "Delete" && this.selectedItem) {
+              this.deleteItem(this.selectedItem.closest(".tree-node"));
+            }
+          });
+        }
+
+        reinitializeTreeEventListeners() {
+          // Tree toggle functionality
+          document.querySelectorAll(".tree-toggle").forEach((toggle) => {
+            toggle.addEventListener("click", (e) => {
+              e.stopPropagation();
+              this.toggleFolder(toggle);
+            });
+          });
+
+          // Item selection
+          document.querySelectorAll(".tree-content").forEach((content) => {
+            content.addEventListener("click", (e) => {
+              if (
+                !e.target.closest(".tree-toggle") &&
+                !e.target.closest(".file-actions")
+              ) {
+                this.selectItem(content);
+              }
+            });
+          });
+
+          // Double-click to open/expand
+          document.querySelectorAll(".tree-content").forEach((content) => {
+            content.addEventListener("dblclick", (e) => {
+              if (e.target.closest(".file-actions")) return;
+              const node = content.closest(".tree-node");
+              if (node.dataset.type === "folder") {
+                const toggle = content.querySelector(".tree-toggle");
+                this.toggleFolder(toggle);
+              } else {
+                this.openFile(node.dataset.path);
+              }
+            });
+          });
+
+          // Event delegation for action buttons
+          document
+            .querySelector(".tree-container")
+            .addEventListener("click", (e) => {
+              const actionBtn = e.target.closest(".action-btn");
+              if (!actionBtn) return;
+
+              e.stopPropagation();
+              const node = actionBtn.closest(".tree-node");
+              const action = actionBtn.dataset.action;
+
+              if (action === "download") {
+                this.downloadItem(node);
+              } else if (action === "delete") {
+                this.deleteItem(node);
+              } else if (action === "edit") {
+                this.dispatchFile(node.dataset.path);
+              }
+            });
+        }
+
+        toggleFolder(toggle) {
+          const node = toggle.closest(".tree-node");
+          const children = node.querySelector(".tree-children");
+          const isExpanded = children.classList.contains("expanded");
+
+          if (isExpanded) {
+            children.classList.remove("expanded");
+            toggle.classList.remove("expanded");
+          } else {
+            children.classList.add("expanded");
+            toggle.classList.add("expanded");
+          }
+        }
+
+        selectItem(content) {
+          if (this.selectedItem) {
+            this.selectedItem.classList.remove("selected");
+          }
+          content.classList.add("selected");
+          this.selectedItem = content;
+
+          const node = content.closest(".tree-node");
+          if (node && node.dataset.type === "file") {
+            this.previewFile(node.dataset.path);
+          }
+        }
+
+        searchFiles(query) {
+          const resultsContainer = document.getElementById("searchResults");
+          const allNodes = document.querySelectorAll(".tree-node");
+
+          if (!query.trim()) {
+            resultsContainer.style.display = "none";
+            allNodes.forEach((node) => {
+              node.style.display = "";
+            });
+            return;
+          }
+
+          resultsContainer.style.display = "block";
+          resultsContainer.innerHTML = "";
+
+          const matches = [];
+
+          allNodes.forEach((node) => {
+            const label = node.querySelector(".tree-label");
+            if (
+              label &&
+              label.textContent.toLowerCase().includes(query.toLowerCase())
+            ) {
+              matches.push({
+                node: node,
+                label: label.textContent,
+                path: node.dataset.path,
+                type: node.dataset.type,
+              });
+              node.style.display = "";
+            } else {
+              node.style.display = "none";
+            }
+          });
+
+          if (matches.length === 0) {
+            resultsContainer.innerHTML =
+              '<div style="color: #cccccc; padding: 8px;">No results found</div>';
+          } else {
+            matches.forEach((match) => {
+              const resultItem = document.createElement("div");
+              resultItem.style.cssText =
+                "padding: 4px 8px; cursor: pointer; color: #cccccc; border-radius: 3px; margin: 2px 0;";
+              resultItem.innerHTML = `
+                            <div style="display: flex; align-items: center;">
+                                ${
+                                  match.type === "folder"
+                                    ? '<svg width="16" height="16" fill="#dcb67a" style="margin-right: 8px;" viewBox="0 0 16 16"><path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H8.786a.5.5 0 0 1-.354-.146l-.5-.5A.5.5 0 0 0 7.5 3.5V2.5A.5.5 0 0 0 7 2h-.5zM2 2.5v-.5A.5.5 0 0 1 2.5 2h.5v1h-.5z"/></svg>'
+                                    : '<svg width="16" height="16" fill="#cccccc" style="margin-right: 8px;" viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2.5z"/></svg>'
+                                }
+                                <span>${match.label}</span>
+                            </div>
+                        `;
+              resultItem.addEventListener("click", () => {
+                this.selectItem(match.node.querySelector(".tree-content"));
+                this.expandToPath(match.node);
+              });
+              resultsContainer.appendChild(resultItem);
+            });
+          }
+        }
+
+        expandToPath(targetNode) {
+          const path = [];
+          let current = targetNode;
+          while (current && current.classList.contains("tree-node")) {
+            path.unshift(current);
+            current = current.parentElement.closest(".tree-node");
+          }
+
+          path.forEach((node) => {
+            if (node.dataset.type === "folder") {
+              const toggle = node.querySelector(".tree-toggle");
+              if (
+                toggle &&
+                !node
+                  .querySelector(".tree-children")
+                  .classList.contains("expanded")
+              ) {
+                this.toggleFolder(toggle);
+              }
+            }
+          });
+        }
+
+        previewFile(path) {
+          const gradioInput = window.parent.document.querySelector(
+            "#preview_path_input textarea",
+          );
+          if (gradioInput) {
+            gradioInput.value = path;
+            const inputEvent = new Event("input", { bubbles: true });
+            gradioInput.dispatchEvent(inputEvent);
+            const changeEvent = new Event("change", { bubbles: true });
+            gradioInput.dispatchEvent(changeEvent);
+          } else {
+            console.error("Could not find the Gradio preview input textbox.");
+          }
+        }
+
+        dispatchFile(path) {
+          const gradioInput = window.parent.document.querySelector(
+            "#dispatch_path_input textarea",
+          );
+          if (gradioInput) {
+            gradioInput.value = path;
+            const inputEvent = new Event("input", { bubbles: true });
+            gradioInput.dispatchEvent(inputEvent);
+            const changeEvent = new Event("change", { bubbles: true });
+            gradioInput.dispatchEvent(changeEvent);
+          } else {
+            console.error("Could not find the Gradio dispatch input textbox.");
+          }
+        }
+
+        uploadFile(files) {
+          const formData = new FormData();
+          for (const file of files) {
+            formData.append("files", file);
+          }
+
+          fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              if (response.ok) {
+                this.fetchAndRenderTree(); // Refresh explorer on success
+              } else {
+                response.json().then((data) => {
+                  console.error(
+                    `Error uploading files: ${data.detail || "Unknown error"}`,
+                  );
+                });
+              }
+            })
+            .catch((error) => {
+              console.error("An unexpected error occurred during upload:", error);
+            });
+        }
+
+        editItem(node) {
+          // This function is triggered by the edit button.
+          // The main logic is handled by selectItem, so this can be empty or
+          // used for other iframe-specific logic in the future.
+          const path = node.dataset.path;
+          console.log("editItem triggered for:", path);
+        }
+
+        downloadItem(node) {
+          const path = node.dataset.path;
+          // Construct the direct download URL
+          // The path needs to be relative to the 'data' directory served by the explorer
+          const relativePath = path.startsWith("data/")
+            ? path.substring(5)
+            : path;
+          const downloadUrl = `/api/download?path=${encodeURIComponent(relativePath)}`;
+          // Trigger the download directly, the browser will handle it
+          window.location.href = downloadUrl;
+        }
+
+        deleteItem(node) {
+          const path = node.dataset.path;
+          const relativePath = path.startsWith("data/")
+            ? path.substring(5)
+            : path;
+          // Remove confirm dialog for a smoother experience
+          fetch(`/api/delete?path=${encodeURIComponent(relativePath)}`, {
+            method: "DELETE",
+          })
+            .then((response) => {
+              if (response.ok) {
+                // On successful deletion, refresh the file explorer
+                this.fetchAndRenderTree();
+              } else {
+                response.json().then((data) => {
+                  console.error(
+                    `Error deleting file: ${data.detail || "Unknown error"}`,
+                  );
+                });
+              }
+            })
+            .catch((error) => {
+              console.error(
+                "An unexpected error occurred during deletion:",
+                error,
+              );
+            });
+        }
+
+        refreshExplorer() {
+          this.fetchAndRenderTree();
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        new ModernFileExplorer();
+      });
+    </script>
+  </body>
+</html>
