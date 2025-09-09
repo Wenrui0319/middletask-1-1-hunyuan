@@ -24,8 +24,7 @@
 ### 3. 克隆项目仓库
 
 ```bash
-git clone https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
-
+git clone https://github.com/Wenrui0319/middletask-1-1-hunyuan.git --branch Interactive-Edit-3D
 ```
 ### 4. 后端模型安装
 
@@ -34,7 +33,7 @@ git clone https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
 #### A.安装 Hunyuan 3D-2 模型
 
 ```bash
-cd Hunyuan3D-2
+cd middletask-1-1-hunyuan/'Interactive Edit 3D'
 pip install -r requirements.txt
 pip install -e .
 # for texture
