@@ -62,23 +62,17 @@ comfy launch -- --enable-cors#启动comfyUI
 导入工作流文件`Qwen+Image+Inapint模型局部重绘V1.json`，下载并放置好模型文件。
 
 #### D.通过 Gemini CLI 获取 Gemini 2.5 Pro API
-## 1.注册google账户并进行设置
-1. 可以通过Gmail App进行注册，有概率可以跳过手机号绑定。
-2. 注册并在浏览器中登录后，点击[官方教程链接](https://cloud.google.com/gemini/docs/discover/set-up-gemini#enable-api)，前往``Gemini for Google Cloud``，进行启用。新建一个cloud工程，记住``ID``。
-# 2.安装并启用Gemini CLI
-1. 安装``nvm``管理``Node.js``版本(需要18或更高版本)
-   ~~~bash
-   #假设安装22.17.0
-   nvm install 22.17.0
-   ~~~
-2. 安装``Gemini CLI``：
-   ~~~bash
-   npm install -g @google/gemini-cli
-   gemini
-   ~~~
-3. 在终端临时设置``GOOGLE_CLOUD_PROJECT``变量
-   ~~~bash
-   export GOOGLE_CLOUD_PROJECT=$(ID)
-   ~~~
-4. 登录谷歌账号：
-   第一次启用会提示登录授权，可以通过在输入框输入``/auth``登录别的账户。
+
+#### E.获取 Nano Banana 图像编辑模型的API
+将API key 填入 `gemini_image_edit_app.py`
+
+### 4.运行
+```bash
+#进入Qwen虚拟环境启动Qwen-Image-Edit和Qwen-Image-InPainting工作流
+comfy launch -- --enable-cors
+```
+```bash
+#进入Hunyuan虚拟环境启动前端主程序、Hunyuan 3D后端、SAM后端
+python app.py --sam_device cuda:2 --device cuda:1
+#通过http://localhost:4000访问
+```
