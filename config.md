@@ -13,12 +13,15 @@
 
 ### 2. 克隆项目仓库
 
-首先，我们将克隆主项目仓库、创建虚拟环境并安装核心依赖。
-
 ```bash
 git clone https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
-cd Hunyuan3D-2
 
+```
+### 3. 后端模型安装
+创建虚拟环境`Hunyuan`部署`Hunyuan 3D-2`和`SAM`模型；虚拟环境`Qwen`部署基于`Qwen-Image-Edit`模型的ComfyUI全局重绘和局部重绘工作流
+#### A.安装 Hunyuan 3D-2 模型
+```bash
+cd Hunyuan3D-2
 pip install -r requirements.txt
 pip install -e .
 # for texture
@@ -28,11 +31,8 @@ cd ../../..
 cd hy3dgen/texgen/differentiable_renderer
 python3 setup.py install
 ```
-### 3. 组件专项安装
 
-完成主项目安装后，需要对 `Segment Anything` 和 `Hunyuan3D` 两个核心组件进行专项安装。
-
-#### A. 安装 Segment Anything (SAM)
+#### B. 安装 Segment Anything (SAM)
 
 此步骤将安装 SAM 库并下载预训练的模型权重。
 
@@ -52,26 +52,33 @@ wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -O mod
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O models/sam_vit_b_01ec64.pth
 ```
 
-#### B.通过 ComfyUI 部署 Qwen-Image-Edit 和 Qwen-Image-InPainting 模型
+#### C.通过 ComfyUI 部署 Qwen-Image-Edit 和 Qwen-Image-InPainting 工作流
 安装ComfyUI软件：[ComfyUI Linux Installation Tutorial | ComfyUI Wiki](https://comfyui-wiki.com/en/install/install-comfyui/install-comfyui-on-linux)
 ```bash
 comfy launch -- --enable-cors#启动comfyUI
 #通过http://localhost:8081访问
 ```
-在templates->image中找到Qwen-Image-Edit，下载并在指定目录放好模型文件，搭建工作流。或者直接导入工作流文件
+在templates->image中找到Qwen-Image-Edit，下载并在指定目录放好模型文件，搭建工作流。或者直接导入工作流文件`image_qwen_image_edit.json`。
+导入工作流文件`Qwen+Image+Inapint模型局部重绘V1.json`，下载并放置好模型文件。
 
-```bash
-# 1. 从官方GitHub仓库安装SAM库
-pip install git+https://github.com/facebookresearch/segment-anything.git
-
-# 2. 创建模型存储目录 (如果尚不存在)
-mkdir -p models
-
-# 3. 下载预训练的SAM模型权重
-# ViT-H (推荐, 效果最好)
-wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth -O models/sam_vit_h_4b8939.pth
-# ViT-L (次之)
-wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -O models/sam_vit_l_0b3195.pth
-# ViT-B (最小)
-wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O models/sam_vit_b_01ec64.pth
-```
+#### D.通过 Gemini CLI 获取 Gemini 2.5 Pro API
+## 1.注册google账户并进行设置
+1. 可以通过Gmail App进行注册，有概率可以跳过手机号绑定。
+2. 注册并在浏览器中登录后，点击[官方教程链接](https://cloud.google.com/gemini/docs/discover/set-up-gemini#enable-api)，前往``Gemini for Google Cloud``，进行启用。新建一个cloud工程，记住``ID``。
+# 2.安装并启用Gemini CLI
+1. 安装``nvm``管理``Node.js``版本(需要18或更高版本)
+   ~~~bash
+   #假设安装22.17.0
+   nvm install 22.17.0
+   ~~~
+2. 安装``Gemini CLI``：
+   ~~~bash
+   npm install -g @google/gemini-cli
+   gemini
+   ~~~
+3. 在终端临时设置``GOOGLE_CLOUD_PROJECT``变量
+   ~~~bash
+   export GOOGLE_CLOUD_PROJECT=$(ID)
+   ~~~
+4. 登录谷歌账号：
+   第一次启用会提示登录授权，可以通过在输入框输入``/auth``登录别的账户。
