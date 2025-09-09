@@ -53,8 +53,13 @@ wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O mod
 ```
 
 #### B.通过 ComfyUI 部署 Qwen-Image-Edit 和 Qwen-Image-InPainting 模型
-创建新的虚拟环境
 安装ComfyUI软件：[ComfyUI Linux Installation Tutorial | ComfyUI Wiki](https://comfyui-wiki.com/en/install/install-comfyui/install-comfyui-on-linux)
+```bash
+comfy launch -- --enable-cors#启动comfyUI
+#通过http://localhost:8081访问
+```
+在templates->image中找到Qwen-Image-Edit，下载并在指定目录放好模型文件，搭建工作流。或者直接导入工作流文件
+
 ```bash
 # 1. 从官方GitHub仓库安装SAM库
 pip install git+https://github.com/facebookresearch/segment-anything.git
