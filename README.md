@@ -10,6 +10,8 @@
 *  **Gemini Chat**：视觉语言模型，用于辅助撰写提示词；
 *  **Hunyuan 3D**：生成3D模型。
 
+[![演示，点击播放](./Demonstration.jpg)](./Demonstration.mp4)
+
 ### 2. 环境准备
 
 在开始之前，请确保您的系统已安装以下基础软件：
